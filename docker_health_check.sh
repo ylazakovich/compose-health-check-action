@@ -18,26 +18,6 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Section 0.1. docker compose capability detection
-# ─────────────────────────────────────────────────────────────────────────────
-docker_compose_supports_wait() {
-  if [[ "${DOCKER_COMPOSE_SUPPORTS_WAIT:-}" == "yes" ]]; then
-    return 0
-  fi
-  if [[ "${DOCKER_COMPOSE_SUPPORTS_WAIT:-}" == "no" ]]; then
-    return 1
-  fi
-
-  if docker compose up --help 2>/dev/null | grep -q -- '--wait'; then
-    DOCKER_COMPOSE_SUPPORTS_WAIT="yes"
-    return 0
-  else
-    DOCKER_COMPOSE_SUPPORTS_WAIT="no"
-    return 1
-  fi
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Section 1. Compose helpers (args/command builders)
 # ─────────────────────────────────────────────────────────────────────────────
 join_quoted() {
