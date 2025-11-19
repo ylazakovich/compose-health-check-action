@@ -1,0 +1,83 @@
+name: "Docker Compose Health Check"
+description: "Runs docker compose and validates container health"
+author: "Yaraslau Lazakovich"
+
+inputs:
+  compose-project-directory:
+    description: "Path to directory with docker-compose files"
+    required: false
+    default: "."
+  compose-files:
+    description: "List of docker-compose files (one per line)"
+    required: false
+    default: |
+      docker-compose.yml
+  services:
+    description: "List of services to start (space-separated). Empty = all services."
+    required: false
+    default: ""
+  profiles:
+    description: "COMPOSE_PROFILES value, if you use profiles"
+    required: false
+    default: ""
+  timeout:
+    description: "Healthcheck timeout per service in seconds"
+    required: false
+    default: "120"
+  additional-compose-args:
+    description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run docker compose with health check
+      shell: bash
+      env:
+        DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
+        SERVICES_LIST: ${{ inputs.services }}
+        COMPOSE_PROFILES: ${{ inputs.profiles }}
+      run: |
+        set -euo pipefail
+
+        SCRIPT_DIR="${GITHUB_WORKSPACE}"
+
+        project_dir="${{ inputs.compose-project-directory }}"
+        project_dir="$(cd "$project_dir" && pwd)"
+
+        compose_files_input="${{ inputs.compose-files }}"
+        additional_args_input="${{ inputs.additional-compose-args }}"
+        services_input="${{ inputs.services }}"
+
+        CMD=(docker compose)
+
+        if [[ -n "$project_dir" ]]; then
+          CMD+=(--project-directory "$project_dir")
+        fi
+
+        while IFS= read -r file; do
+          if [[ -n "$file" ]]; then
+            CMD+=(-f "$file")
+          fi
+        done <<<"$compose_files_input"
+
+        if [[ -n "$additional_args_input" ]]; then
+          # shellcheck disable=SC2206
+          extra_args=( $additional_args_input )
+          CMD+=("${extra_args[@]}")
+        fi
+
+        CMD+=(up -d)
+
+        if [[ -n "$services_input" ]]; then
+          # shellcheck disable=SC2206
+          svc_arr=( $services_input )
+          CMD+=("${svc_arr[@]}")
+        fi
+
+        echo "Running docker compose via docker_health_check.sh with command:"
+        printf '  %q' "${CMD[@]}"
+        echo
+
+        bash "${SCRIPT_DIR}/docker_health_check.sh" "${CMD[@]}"

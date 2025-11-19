@@ -1,0 +1,26 @@
+name: "Local Docker Compose Health Check"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run local Docker Compose health check
+        uses: ./.github/actions/compose-health-check
+        with:
+          compose-project-directory: "."
+          compose-files: |
+            docker-compose.yml
+          services: "web"
+          profiles: ""
+          timeout: "60"
+          additional-compose-args: ""
