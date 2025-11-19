@@ -1,5 +1,4 @@
 name: "Local Docker Compose Health Check"
-
 on:
   push:
     branches: [main]
