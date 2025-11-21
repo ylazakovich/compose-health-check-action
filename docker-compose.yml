@@ -9,3 +9,17 @@ services:
       timeout: 2s
       retries: 10
       start_period: 5s
+
+  broken:
+    image: nginx:1.29-alpine
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:9999/does-not-exist",
+        ]
+      interval: 1s
+      retries: 3

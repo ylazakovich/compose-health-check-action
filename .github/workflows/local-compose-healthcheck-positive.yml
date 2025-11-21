@@ -1,4 +1,4 @@
-name: "Local Docker Compose Health Check"
+name: "Workflow when passed"
 on:
   push:
     branches: [main]
@@ -6,9 +6,8 @@ on:
     branches: [main]
 
 jobs:
-  docker-health:
+  docker-health-when-passed:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
