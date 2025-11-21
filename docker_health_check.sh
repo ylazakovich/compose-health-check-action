@@ -393,7 +393,7 @@ execute() {
         [[ -z "$failed" ]] && continue
         printf '\n--- logs for %s ---\n' "$failed"
         docker logs --tail=30 "$failed" 2>/dev/null || true
-      done < <(docker ps -a --format '{{.Names}} {{.State.ExitCode}}' | awk '$2 != 0 {print $1}')
+      done < <(docker ps -a --format '{{.Names}} {{.Status}}' | awk '$2 ~ /^Exited/ {print $1}')
       echo
       info "Additional diagnostic summary:"
       docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{if .State.Health}}{{.State.Health.Status}}{{else}}<none>{{end}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /' ||
