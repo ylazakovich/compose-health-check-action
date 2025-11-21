@@ -1,4 +1,4 @@
-name: "Local Docker Compose Health Check - Positive"
+name: "Workflow when passed"
 on:
   push:
     branches: [main]

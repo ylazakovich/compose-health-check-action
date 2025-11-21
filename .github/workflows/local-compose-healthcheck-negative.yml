@@ -1,4 +1,4 @@
-name: "Local Docker Compose Health Check - Negative"
+name: "Workflow when failed"
 
 on:
   push:
