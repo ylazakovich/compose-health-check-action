@@ -1,4 +1,4 @@
-name: "Workflow when failed"
+name: "Workflow when unhealthy"
 
 on:
   push:
@@ -7,12 +7,12 @@ on:
     branches: [main]
 
 jobs:
-  docker-health-when-fail:
+  docker-health-when-unhealthy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-      - name: Run local Docker Compose health check (EXPECTED TO FAIL)
+      - name: Run local Docker Compose health check (EXPECTED -> TO FAIL)
         id: healthcheck
         uses: ./.github/actions/compose-health-check
         continue-on-error: true

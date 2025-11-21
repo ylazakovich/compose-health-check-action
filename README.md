@@ -3,8 +3,10 @@
 ![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 
-![Local Compose Health - Positive](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/local-compose-healthcheck-positive.yml/badge.svg)
-![Local Compose Health - Negative](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/local-compose-healthcheck-negative.yml/badge.svg)
+![Healthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/healthy.yml/badge.svg)
+![Unhealthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/unhealthy.yml/badge.svg)
+![No Services](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/no-services.yml/badge.svg)
+
 
 ---
 
@@ -90,7 +92,7 @@ Run the action locally with a modern GitHub Actions runner image:
 
 ```bash
 act push \
-  -W .github/workflows/local-compose-healthcheck-positive.yml \
+  -W .github/workflows/healthy.yml \
   -a linux/amd64 \
   -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest
 ```

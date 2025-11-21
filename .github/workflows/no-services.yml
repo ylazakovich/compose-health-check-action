@@ -1,0 +1,38 @@
+name: "Workflow when no services detected"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker-health-when-no-services:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Run Docker Compose health check (EXPECTED -> NO SERVICES)
+        id: healthcheck
+        uses: ./.github/actions/compose-health-check
+        continue-on-error: true
+        with:
+          compose-project-directory: "."
+          compose-files: |
+            docker-compose-NOT-FOUND.yml
+          services: ""
+          timeout: "10"
+          additional-compose-args: ""
+
+      - name: Assert that workflow failed due to no services
+        if: always()
+        run: |
+          echo "Step outcome: ${{ steps.healthcheck.outcome }}"
+          echo "Step conclusion: ${{ steps.healthcheck.conclusion }}"
+
+          if [ "${{ steps.healthcheck.outcome }}" != "failure" ]; then
+            echo "❌ Expected failure due to NO SERVICES, but step succeeded."
+            exit 1
+          fi
+
+          echo "✅ Negative test passed: NO SERVICES scenario reproduced successfully."

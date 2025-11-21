@@ -1,4 +1,4 @@
-name: "Workflow when passed"
+name: "Workflow when healthy"
 on:
   push:
     branches: [main]
