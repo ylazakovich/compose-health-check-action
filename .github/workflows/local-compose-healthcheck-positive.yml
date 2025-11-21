@@ -1,4 +1,4 @@
-name: "Local Docker Compose Health Check"
+name: "Local Docker Compose Health Check - Positive"
 on:
   push:
     branches: [main]
