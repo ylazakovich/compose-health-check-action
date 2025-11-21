@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/logging.sh"
 
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
+DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-50}"
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
@@ -195,6 +196,13 @@ check_service_health() {
         warning "'jq' not found; showing raw health JSON"
         docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
       fi
+
+      local log_lines="${DOCKER_HEALTH_LOG_LINES:-50}"
+      info "Last ${log_lines} log lines for service '$service' (container $cid):"
+      if ! docker logs --tail "$log_lines" "$cid" 2>/dev/null; then
+        warning "Failed to read logs for container $cid"
+      fi
+
       failed=1
     fi
   done
@@ -208,7 +216,6 @@ check_service_health() {
   fi
   return 0
 }
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 3. Pretty printers
 # ─────────────────────────────────────────────────────────────────────────────
