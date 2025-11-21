@@ -20,7 +20,7 @@ jobs:
           compose-project-directory: "."
           compose-files: |
             docker-compose.yml
-          services: "broken"
+          services: "slow-broken"
           timeout: "10"
           additional-compose-args: ""
       - name: Assert that healthcheck step failed
