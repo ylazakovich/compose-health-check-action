@@ -29,7 +29,6 @@ jobs:
           echo "Step outcome: ${{ steps.healthcheck.outcome }}"
           echo "Step conclusion: ${{ steps.healthcheck.conclusion }}"
 
-          # outcome будет "failure", conclusion — "success" из-за continue-on-error
           if [ "${{ steps.healthcheck.outcome }}" != "failure" ]; then
             echo "❌ Expected compose-health-check step to FAIL on broken compose, but it succeeded."
             exit 1
