@@ -1,4 +1,5 @@
-name: "Local Docker Compose Health Check"
+name: "Local Docker Compose Health Check - Negative"
+
 on:
   push:
     branches: [main]
@@ -11,7 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-      - name: Run local Docker Compose health check
+      - name: Run local Docker Compose health check (EXPECTED TO FAIL)
+        id: healthcheck
         uses: ./.github/actions/compose-health-check
         continue-on-error: true
         with:
@@ -21,16 +23,16 @@ jobs:
           services: "broken"
           timeout: "10"
           additional-compose-args: ""
-
-  assert-failure:
-    name: "Assert that previous job failed"
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Check that healthcheck job failed as expected
+      - name: Assert that healthcheck step failed
+        if: always()
         run: |
-          if [ "${{ needs.should-fail.result }}" != "failure" ]; then
-            echo "❌ Expected healthcheck job to FAIL on broken compose, but it succeeded."
+          echo "Step outcome: ${{ steps.healthcheck.outcome }}"
+          echo "Step conclusion: ${{ steps.healthcheck.conclusion }}"
+
+          # outcome будет "failure", conclusion — "success" из-за continue-on-error
+          if [ "${{ steps.healthcheck.outcome }}" != "failure" ]; then
+            echo "❌ Expected compose-health-check step to FAIL on broken compose, but it succeeded."
             exit 1
           fi
-          echo "✅ Negative test passed: healthcheck job failed as expected."
+
+          echo "✅ Negative test passed: compose-health-check step failed as expected."

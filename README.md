@@ -3,7 +3,7 @@
 ![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 
-![Local Compose Health](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/local-compose-health.yml/badge.svg)
+![Local Compose Health](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/local-compose-healthcheck-positive.yml/badge.svg)
 
 ---
 
