@@ -303,6 +303,7 @@ print_detected_services_table() {
 # Section 4. Main flow
 # ─────────────────────────────────────────────────────────────────────────────
 execute() {
+  local compose_rc=0
   # 4.1 parse args
   if (($# < 1)); then
     error "No docker command provided. Example: docker compose -f a.yml up -d [--timeout N|-t N]"
@@ -377,6 +378,8 @@ execute() {
     trap cleanup_tmp EXIT
     if ! "${cmd_args[@]}" 2>&1 | tee "$tmp_out"; then
       local rc_left=${PIPESTATUS[0]:-1}
+      compose_rc="$rc_left"
+
       error "Docker compose failed to start (exit $rc_left):"
       printf '%s\n' "--- docker compose output (last 200 lines) ---"
       tail -n 200 -- "$tmp_out" || true
@@ -394,8 +397,9 @@ execute() {
       done < <(docker ps -a --format '{{.Names}} {{.State.ExitCode}}' | awk '$2 != 0 {print $1}')
       echo
       info "Additional diagnostic summary:"
-      docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /'
-      exit "$rc_left"
+      docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{if .State.Health}}{{.State.Health.Status}}{{else}}<none>{{end}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /' ||
+        warning "Failed to inspect containers for diagnostic summary."
+      # ВАЖНО: БОЛЬШЕ НЕТ exit ЗДЕСЬ
     fi
     cleanup_tmp
     trap - EXIT
