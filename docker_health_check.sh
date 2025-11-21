@@ -379,7 +379,6 @@ execute() {
     if ! "${cmd_args[@]}" 2>&1 | tee "$tmp_out"; then
       local rc_left=${PIPESTATUS[0]:-1}
       compose_rc="$rc_left"
-
       error "Docker compose failed to start (exit $rc_left):"
       printf '%s\n' "--- docker compose output (last 200 lines) ---"
       tail -n 200 -- "$tmp_out" || true
@@ -399,7 +398,6 @@ execute() {
       info "Additional diagnostic summary:"
       docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{if .State.Health}}{{.State.Health.Status}}{{else}}<none>{{end}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /' ||
         warning "Failed to inspect containers for diagnostic summary."
-      # ВАЖНО: БОЛЬШЕ НЕТ exit ЗДЕСЬ
     fi
     cleanup_tmp
     trap - EXIT
