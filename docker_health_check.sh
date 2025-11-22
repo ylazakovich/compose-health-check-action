@@ -1,115 +1,50 @@
 #!/bin/bash
 set -euo pipefail
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 0. Bootstrap & settings
-# ─────────────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/logging.sh"
 
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
-DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-50}"
+DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-10}"
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
   export DOCKER_DEFAULT_PLATFORM="${HOST_PLATFORM}"
-else
-  warning "Failed to determine host platform — compose will choose platform automatically."
 fi
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 1. Compose helpers (args/command builders)
-# ─────────────────────────────────────────────────────────────────────────────
-join_quoted() {
-  local out=() a
-  for a in "$@"; do
-    printf -v a '%q' "$a"
-    out+=("$a")
+declare -a DOCKER_HEALTH_UNHEALTHY_TARGETS=()
+
+docker_health_add_unhealthy_target() {
+  local service="$1"
+  local cid="$2"
+  DOCKER_HEALTH_UNHEALTHY_TARGETS+=("${service}|${cid}")
+}
+
+print_command_pretty() {
+  printf 'Running docker compose via docker_health_check.sh with command:\n  '
+  local part
+  for part in "$@"; do
+    printf '%q ' "$part"
   done
-  printf '%s' "${out[*]}"
+  printf '\n'
 }
 
-extract_compose_files_and_project_dir() {
-  local -a args=("$@")
-  local -a files=()
-  local project=""
-  local i
-  for ((i = 0; i < ${#args[@]}; i++)); do
-    if [[ "${args[i]}" == "-f" && $((i + 1)) -lt ${#args[@]} ]]; then
-      files+=("${args[i + 1]}")
-      ((i++))
-      continue
-    fi
-    if [[ "${args[i]}" == "--project-directory" && $((i + 1)) -lt ${#args[@]} ]]; then
-      project="${args[i + 1]}"
-      ((i++))
-      continue
-    fi
-  done
-  ((${#files[@]} == 0)) && files=("docker-compose.yml")
-  printf '%s\0' "$project" "${files[@]}"
-}
-
-build_compose_cmd_array() {
-  local project="$1"
-  shift
-  local -a files=("$@")
-  local -a cmd=(docker compose)
-  [[ -n "$project" ]] && cmd+=(--project-directory "$project")
-  local file
-  for file in "${files[@]}"; do cmd+=(-f "$file"); done
-  printf '%s\0' "${cmd[@]}"
-}
-
-get_services_via_config() {
-  local project="$1"
-  shift
-  local -a files=("$@")
-  local -a base=()
-  while IFS= read -r -d '' x; do base+=("$x"); done < <(build_compose_cmd_array "$project" "${files[@]}")
-  "${base[@]}" config --services 2>/dev/null
-}
-
-get_services_via_ps() {
-  local project="$1"
-  shift
-  local -a files=("$@")
-  local -a base=()
-  while IFS= read -r -d '' x; do base+=("$x"); done < <(build_compose_cmd_array "$project" "${files[@]}")
-  local out
-  if ! out="$("${base[@]}" ps --services --all 2>/dev/null)"; then
-    error "Failed to list services via 'docker compose ps'. Check project directory and compose files."
-    return 1
-  fi
-  [[ -z "${out//[[:space:]]/}" ]] && return 1
-  printf '%s\n' "$out"
-}
-
-get_ps_json() {
-  local project="$1"
-  shift
-  local -a files=("$@")
-  local -a base=()
-  while IFS= read -r -d '' x; do base+=("$x"); done < <(build_compose_cmd_array "$project" "${files[@]}")
-  "${base[@]}" ps --format json --all 2>/dev/null
-}
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 2. Health helpers
-# ─────────────────────────────────────────────────────────────────────────────
 wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
-  local interval=2 waited=0
-  local hc
-  hc="$(docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || echo "")"
-  [[ -z "$hc" || "$hc" == "null" ]] && {
+
+  local has_health
+  has_health="$(docker inspect -f '{{if .State.Health}}yes{{end}}' "$cid" 2>/dev/null || true)"
+  if [[ "$has_health" != "yes" ]]; then
     echo "NO_HEALTHCHECK"
     return 0
-  }
-  while :; do
+  fi
+
+  local waited=0
+  local interval=2
+  while (( waited < timeout )); do
     local status
-    status="$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
     case "$status" in
       healthy)
         echo "healthy"
@@ -119,11 +54,7 @@ wait_for_container_health() {
         echo "unhealthy"
         return 0
         ;;
-      starting | unknown)
-        ((waited >= timeout)) && {
-          echo "$status"
-          return 0
-        }
+      starting|unknown)
         sleep "$interval"
         waited=$((waited + interval))
         ;;
@@ -133,15 +64,21 @@ wait_for_container_health() {
         ;;
     esac
   done
+
+  local final
+  final="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+  echo "$final"
 }
 
 check_service_health() {
   local service="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
 
-  local failed=0 any=0
+  local failed=0
+  local any=0
   local -a cids=()
-  local waited_c=0 interval_c=2
+  local waited_c=0
+  local interval_c=2
 
   local -a project_filter=()
   if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
@@ -164,7 +101,6 @@ check_service_health() {
 
   local cid result
   for cid in "${cids[@]}"; do
-    [[ -n "$cid" ]] || continue
     any=1
     result="$(wait_for_container_health "$cid" "$timeout")"
 
@@ -172,218 +108,193 @@ check_service_health() {
       warning "Healthcheck is not configured for service '$service' (container $cid)."
       continue
     fi
+
     if [[ "$result" == "healthy" ]]; then
       info "Service '$service' is healthy (container $cid)."
       continue
     fi
+
     if [[ "$result" == "starting" || "$result" == "unknown" ]]; then
       warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
-      if command -v jq >/dev/null 2>&1; then
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
-      else
-        warning "'jq' not found; showing raw health JSON"
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
-      fi
       failed=1
       continue
     fi
+
     if [[ "$result" == "unhealthy" ]]; then
-      warning "Service '$service' is unhealthy (container $cid). Showing health logs:"
-      if command -v jq >/dev/null 2>&1; then
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
-      else
-        warning "'jq' not found; showing raw health JSON"
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
-      fi
+      warning "Service '$service' is unhealthy (container $cid)."
+      docker_health_add_unhealthy_target "$service" "$cid"
       failed=1
     fi
   done
 
   if ((any == 0)); then
-    warning "Service '$service' has no running containers yet; skipping healthcheck for it."
+    warning "Service '$service' has no running containers yet; skipping healthcheck."
   fi
-  if ((failed != 0)); then
-    error "Service '$service' healthcheck failed!!!"
-    return 1
-  fi
+
+  ((failed != 0)) && return 1
   return 0
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 3. Pretty printers
-# ─────────────────────────────────────────────────────────────────────────────
 print_detected_services_table() {
-  local services="$1" up="$2" done_s="$3" bad_s="$4" started="$5"
-  printf '──────────────────────────────────────────────\n'
+  local all="$1"
+  local up="$2"
+
+  echo "──────────────────────────────────────────────"
   info "Detected services:"
-  printf '──────────────────────────────────────────────\n'
-  local maxlen=0 line
+  echo "──────────────────────────────────────────────"
+
+  local idx=1 line maxlen=0
+
   while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
+    [[ -z "$line" ]] && continue
     ((${#line} > maxlen)) && maxlen=${#line}
-  done <<<"$(tr ' ' '\n' <<<"$services")"
-  local idx=1 tag
+  done <<<"$(tr ' ' '\n' <<<"$all")"
+
   while IFS= read -r line; do
-    [[ -n "$line" ]] || continue
-    tag="[SKIP]"
+    [[ -z "$line" ]] && continue
+    local tag="[SKIP]"
     echo " $up " | grep -qw "$line" && tag="[UP]"
-    echo " $done_s " | grep -qw "$line" && tag="[DONE]"
-    echo " $bad_s " | grep -qw "$line" && tag="[EXIT-FAIL]"
-    if [[ "$tag" == "[SKIP]" ]] && echo " $started " | grep -qw "$line"; then tag="[STARTED]"; fi
     printf "  %2d. %-*s  %s\n" "$idx" "$maxlen" "$line" "$tag"
     idx=$((idx + 1))
-  done <<<"$(tr ' ' '\n' <<<"$services")"
-  printf '──────────────────────────────────────────────\n\n'
+  done <<<"$(tr ' ' '\n' <<<"$all")"
+
+  echo "──────────────────────────────────────────────"
+  echo
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Section 4. Main flow
-# ─────────────────────────────────────────────────────────────────────────────
-execute() {
-  # 4.1 parse args
-  if (($# < 1)); then
-    error "No docker command provided. Example: docker compose -f a.yml up -d [--timeout N|-t N]"
-    exit 1
-  fi
-  local -a cmd_args=()
-  while (($# > 0)); do
-    case "$1" in
-      --timeout=*)
-        DOCKER_HEALTH_TIMEOUT="${1#*=}"
-        shift
-        ;;
-      --timeout | -t)
-        shift
-        (("$#" > 0)) || {
-          error "Missing value for --timeout"
-          exit 1
-        }
-        DOCKER_HEALTH_TIMEOUT="$1"
-        shift
-        ;;
-      *)
-        cmd_args+=("$1")
-        shift
-        ;;
-    esac
-  done
-  [[ "$DOCKER_HEALTH_TIMEOUT" =~ ^[0-9]+$ ]] || {
-    error "Invalid timeout value: '$DOCKER_HEALTH_TIMEOUT'"
-    exit 1
-  }
+print_unhealthy_services_details() {
+  ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} == 0)) && return 0
 
-  # 4.2 normalize & enrich args
-  local has_up=false has_wait=false has_wait_timeout=false a
-  for a in "${cmd_args[@]}"; do
-    [[ "$a" == "up" ]] && has_up=true
-    [[ "$a" == "--wait" ]] && has_wait=true
-    [[ "$a" == "--wait-timeout" || "$a" == --wait-timeout=* ]] && has_wait_timeout=true
-  done
-  if $has_up; then
-    $has_wait || cmd_args+=(--wait)
-    $has_wait_timeout || cmd_args+=(--wait-timeout "$DOCKER_HEALTH_TIMEOUT")
-  fi
+  echo
+  echo "Unhealthy services:"
+  local item svc cid
 
-  # 4.3 compose context
-  local -a ctx=()
-  while IFS= read -r -d '' x; do ctx+=("$x"); done < <(extract_compose_files_and_project_dir "${cmd_args[@]}")
-  local project="${ctx[0]:-}"
-  local -a files=("${ctx[@]:1}")
-  [[ -z "${COMPOSE_PROJECT_NAME:-}" && -n "$project" ]] && export COMPOSE_PROJECT_NAME="$(basename "$project")"
+  for item in "${DOCKER_HEALTH_UNHEALTHY_TARGETS[@]}"; do
+    IFS='|' read -r svc cid <<<"$item"
+    echo "  - ${svc} (container ${cid})"
 
-  # 4.4 list declared services
-  local services
-  services="$(get_services_via_config "$project" "${files[@]}" || true)"
-  if [[ -z "$services" && -n "${SERVICES_LIST:-}" ]]; then
-    warning "No services returned by 'config --services'. Falling back to SERVICES_LIST."
-    services="$SERVICES_LIST"
-  fi
+    if command -v jq >/dev/null 2>&1; then
+      local health_json
+      health_json="$(docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || echo '{}')"
 
-  # 4.5 run compose (with tee to temp log)
-  {
-    tmp_out="$(mktemp -t compose_out.XXXXXX)" || {
-      error "Failed to create temporary file for logging."
-      exit 1
-    }
-    cleanup_tmp() { rm -f -- "$tmp_out"; }
-    trap cleanup_tmp EXIT
-    if ! "${cmd_args[@]}" 2>&1 | tee "$tmp_out"; then
-      local rc_left=${PIPESTATUS[0]:-1}
-      error "Docker compose failed to start (exit $rc_left):"
-      printf '%s\n' "--- docker compose output (last 200 lines) ---"
-      tail -n 200 -- "$tmp_out" || true
-      echo
-      info "Analyzing failed containers..."
-      echo "──────────────────────────────────────────────"
-      docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' |
-        grep -E 'Exited|Dead' || info "No exited containers found."
+      local status failing
+      status="$(jq -r '.Status // "<none>"' <<<"$health_json")"
+      failing="$(jq -r '.FailingStreak // 0' <<<"$health_json")"
 
-      echo
-      while IFS= read -r failed; do
-        [[ -z "$failed" ]] && continue
-        printf '\n--- logs for %s ---\n' "$failed"
-        docker logs --tail=30 "$failed" 2>/dev/null || true
-      done < <(docker ps -a --format '{{.Names}} {{.State.ExitCode}}' | awk '$2 != 0 {print $1}')
-      echo
-      info "Additional diagnostic summary:"
-      docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /'
-      exit "$rc_left"
+      echo "    Health:         ${status}"
+      echo "    Failing streak: ${failing}"
+      echo "    Last probes:"
+
+      jq -r '.Log // [] | (.[-5:] // .)[] | "      • ExitCode=\(.ExitCode)  \(.Output|tostring|gsub("\n$";""))"' \
+        <<<"$health_json" || echo "      • <no entries>"
+    else
+      echo "    Health details (raw JSON):"
+      docker inspect --format='{{json .State.Health}}' "$cid" | sed 's/^/      /'
     fi
-    cleanup_tmp
-    trap - EXIT
-  }
 
-  # 4.6 if nothing declared — show diag and stop
+    echo
+    echo "    Last ${DOCKER_HEALTH_LOG_LINES} container log lines:"
+    docker logs --tail "${DOCKER_HEALTH_LOG_LINES}" "$cid" 2>/dev/null | sed 's/^/      /' || \
+      echo "      <failed to read logs>"
+    echo
+  done
+}
+
+execute() {
+  if (("$#" == 0)); then
+    error "Usage: $0 docker compose [args...]"
+    exit 1
+  fi
+
+  local -a cmd_args=("$@")
+  print_command_pretty "${cmd_args[@]}"
+
+  local compose_rc=0 tmp_out
+  tmp_out="$(mktemp)"
+
+  if ! "${cmd_args[@]}" 2>&1 | tee "$tmp_out"; then
+    compose_rc=${PIPESTATUS[0]:-1}
+
+    error "Docker compose failed to start (exit $compose_rc)."
+
+    echo
+    echo "🔍  Diagnostics summary"
+    echo "─────────────────────────────────────────────────────────────"
+    printf '  Platform:              %s\n' "${DOCKER_DEFAULT_PLATFORM:-<unknown>}"
+    printf '  Global timeout:        %ss (per service)\n' "$DOCKER_HEALTH_TIMEOUT"
+
+    printf '  Compose command:\n'
+    printf '      '
+    for i in "${cmd_args[@]}"; do printf '%q ' "$i"; done
+    echo
+
+    echo
+    info "--- docker compose output (last 25 lines) ---"
+    echo "─────────────────────────────────────────────────────────────"
+
+    tail -n 25 "$tmp_out" || true
+    rm -f "$tmp_out"
+
+    echo
+    info "--- docker compose ps --all ---"
+    echo "─────────────────────────────────────────────────────────────"
+    docker compose ps --all 2>/dev/null || true
+    echo
+
+    info "--- docker compose ls (all projects) ---"
+    echo "─────────────────────────────────────────────────────────────"
+    docker compose ls 2>/dev/null || true
+    echo
+
+    info "--- docker ps --all (global) ---"
+    echo "─────────────────────────────────────────────────────────────"
+    docker ps --all --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
+    echo
+    echo "─────────────────────────────────────────────────────────────"
+
+    error "Some services failed to start (docker compose error)."
+    exit 1
+  fi
+
+  rm -f "$tmp_out"
+
+  local services="${SERVICES_LIST:-}"
   if [[ -z "$services" ]]; then
-    error "Could not determine services even after start."
-    printf '\n──────────────────────────────────────────────\n'
-    printf '🔍  Diagnostics summary\n'
-    printf '──────────────────────────────────────────────\n'
+    services="$(docker compose config --services 2>/dev/null || true)"
+  fi
+
+  if [[ -z "$services" ]]; then
+    error "Could not determine services from docker compose."
+
+    echo
+    echo "🔍  Diagnostics summary"
+    echo "─────────────────────────────────────────────────────────────"
     printf 'COMPOSE_PROJECT_NAME=%s\n' "${COMPOSE_PROJECT_NAME:-<unset>}"
     printf 'COMPOSE_PROFILES=%s\n' "${COMPOSE_PROFILES:-<unset>}"
-    printf 'compose-files:\n'
-    local file
-    for file in "${files[@]:-}"; do printf '  - %s\n' "$file"; done
-    local -a diag=()
-    diag+=(docker compose)
-    [[ -n "${project:-}" ]] && diag+=(--project-directory "$project")
-    for file in "${files[@]:-}"; do diag+=(-f "$file"); done
-    printf '\n--- docker compose ps --all ---\n'
-    "${diag[@]}" ps --all 2>&1 || true
-    printf '\n--- docker compose ls (all projects) ---\n'
+
+    echo
+    info "--- docker compose ps --all ---"
+    echo "─────────────────────────────────────────────────────────────"
+    docker compose ps --all 2>/dev/null || true
+    echo
+
+    info "--- docker compose ls (all projects) ---"
+    echo "─────────────────────────────────────────────────────────────"
     docker compose ls 2>/dev/null || true
-    printf '\n--- docker ps --all (global) ---\n'
-    docker ps --all --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' 2>/dev/null || true
-    printf '\n──────────────────────────────────────────────\n'
+    echo
+
+    info "--- docker ps --all (global) ---"
+    echo "─────────────────────────────────────────────────────────────"
+    docker ps --all 2>/dev/null || true
+    echo
+
     exit 1
   fi
 
-  # 4.7 collect runtime sets
-  local started_services="" up_services="" completed_ok_services="" exited_bad_services=""
-  if command -v jq >/dev/null 2>&1; then
-    local ps_json
-    ps_json="$(get_ps_json "$project" "${files[@]}" || true)"
-    if [[ -n "$ps_json" ]]; then
-      started_services="$(jq -sr 'map(select(type=="object") | .Service) | unique | join(" ")' <<<"$ps_json")"
-      up_services="$(jq -sr 'map(select(type=="object" and ((.State // .Status)=="running")) | .Service) | unique | join(" ")' <<<"$ps_json")"
-      completed_ok_services="$(jq -sr 'map(select(type=="object" and ((.State // .Status)=="exited") and ((.ExitCode // 0)|tostring)=="0") | .Service) | unique | join(" ")' <<<"$ps_json")"
-      exited_bad_services="$(jq -sr 'map(select(type=="object" and ((.State // .Status)=="exited") and ((.ExitCode // 0)|tostring)!="0") | .Service) | unique | join(" ")' <<<"$ps_json")"
-    fi
-  fi
-  [[ -z "$started_services" ]] && started_services="$(get_services_via_ps "$project" "${files[@]}" || true)"
+  local up_services="$services"
 
-  # 4.8 fail fast on exited!=0 one-shots
-  if [[ -n "$exited_bad_services" ]]; then
-    error "Some one-shot services exited with non-zero code: $exited_bad_services"
-    exit 1
-  fi
-
-  # 4.9 health-check only running
   echo "Checking health status of services (running only)..."
-  local to_check="$up_services"
-  [[ -z "$to_check" ]] && to_check="$started_services"
   local svc
-
   local services_checked=0
   local healthy_count=0
   local unhealthy_count=0
@@ -392,47 +303,48 @@ execute() {
   local health_failed=0
 
   while IFS= read -r svc; do
-    [[ -n "$svc" ]] || continue
+    [[ -z "$svc" ]] && continue
     services_checked=$((services_checked + 1))
+
     if ! check_service_health "$svc" "$DOCKER_HEALTH_TIMEOUT"; then
       health_failed=1
       unhealthy_count=$((unhealthy_count + 1))
     else
       healthy_count=$((healthy_count + 1))
     fi
-  done <<<"$(tr ' ' '\n' <<<"$to_check")"
+  done <<<"$(tr ' ' '\n' <<<"$up_services")"
 
   echo
-  printf '─────────────────────────────────────────────────────────────\n'
+  echo "─────────────────────────────────────────────────────────────"
   info "Healthcheck summary"
-  printf '─────────────────────────────────────────────────────────────\n'
+  echo "─────────────────────────────────────────────────────────────"
+
   printf '  Platform:              %s\n' "${DOCKER_DEFAULT_PLATFORM:-<unknown>}"
   printf '  Global timeout:        %ss (per service)\n' "$DOCKER_HEALTH_TIMEOUT"
 
-  if ((${#cmd_args[@]} > 0)); then
-    printf '  Compose command:\n'
-    printf '      '
-    local __i
-    for __i in "${cmd_args[@]}"; do
-      printf '%q ' "$__i"
-    done
-    printf '\n'
+  printf '  Compose command:\n      '
+  for i in "${cmd_args[@]}"; do printf '%q ' "$i"; done
+  echo
+
+  echo
+  if (( health_failed == 0 )); then
+    echo "  Overall result:        OK (all services healthy)"
+  else
+    echo "  Overall result:        FAILED (unhealthy services detected)"
   fi
 
-  printf '\n'
-  if (( health_failed == 0 )); then
-    printf '  Overall result:        OK (all services healthy)\n'
-  else
-    printf '  Overall result:        FAILED (some services unhealthy)\n'
-  fi
   printf '  Services checked:      %d\n' "$services_checked"
   printf '  Healthy:               %d\n' "$healthy_count"
   printf '  Unhealthy:             %d\n' "$unhealthy_count"
   printf '  Without healthcheck:   %d\n' "$no_hc_count"
   printf '  No containers:         %d\n' "$no_containers_count"
-  printf '\n'
+  echo
 
-  print_detected_services_table "$services" "$up_services" "$completed_ok_services" "$exited_bad_services" "$started_services"
+  if (( health_failed != 0 )); then
+    print_unhealthy_services_details
+  fi
+
+  print_detected_services_table "$services" "$up_services"
 
   if (( health_failed != 0 )); then
     error "Some services failed healthcheck."
@@ -442,6 +354,4 @@ execute() {
   echo "Application started successfully!"
 }
 
-# Section 5. Entrypoint
-# ─────────────────────────────────────────────────────────────────────────────
 execute "$@"
