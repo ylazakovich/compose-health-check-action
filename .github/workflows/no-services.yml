@@ -44,5 +44,7 @@ jobs:
           assert '^  Global timeout:[[:space:]]*10s \(per service\)$'
           assert 'docker-compose-NOT-FOUND\.yml'
           assert 'docker compose output \(last 25 lines\)'
+          assert 'docker compose ls \(all projects\)'
+          assert 'docker ps --all \(global\)'
           assert 'no such file or directory'
           echo "✅ NO SERVICES diagnostics validated successfully."
