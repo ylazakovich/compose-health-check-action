@@ -7,7 +7,6 @@
 ![Unhealthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/unhealthy.yml/badge.svg)
 ![No Services](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/no-services.yml/badge.svg)
 
-
 ---
 
 ## 📚 Overview

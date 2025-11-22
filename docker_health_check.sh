@@ -13,7 +13,6 @@ DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-50}"
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
   export DOCKER_DEFAULT_PLATFORM="${HOST_PLATFORM}"
-  info "Using local platform: ${DOCKER_DEFAULT_PLATFORM}"
 else
   warning "Failed to determine host platform — compose will choose platform automatically."
 fi
@@ -196,13 +195,6 @@ check_service_health() {
         warning "'jq' not found; showing raw health JSON"
         docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
       fi
-
-      local log_lines="${DOCKER_HEALTH_LOG_LINES:-50}"
-      info "Last ${log_lines} log lines for service '$service' (container $cid):"
-      if ! docker logs --tail "$log_lines" "$cid" 2>/dev/null; then
-        warning "Failed to read logs for container $cid"
-      fi
-
       failed=1
     fi
   done
@@ -216,65 +208,10 @@ check_service_health() {
   fi
   return 0
 }
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 3. Pretty printers
 # ─────────────────────────────────────────────────────────────────────────────
-print_command_pretty() {
-  local -a a=("$@")
-  info "Launch command:"
-  local lines=() i=0
-  if ((${#a[@]} >= 2)) && [[ "${a[0]}" == "docker" && "${a[1]}" == "compose" ]]; then
-    lines+=("docker compose")
-    i=2
-  fi
-  q() { printf %q "$1"; }
-  while ((i < ${#a[@]})); do
-    case "${a[i]}" in
-      -f | --f | --profile | --project-directory | --wait-timeout | --project-name | -p)
-        if ((i + 1 < ${#a[@]})); then
-          lines+=("  $(q "${a[i]}") $(q "${a[i + 1]}")")
-          i=$((i + 2))
-        else
-          lines+=("  $(q "${a[i]}")")
-          i=$((i + 1))
-        fi
-        ;;
-      up)
-        local seg=("up")
-        i=$((i + 1))
-        while ((i < ${#a[@]})); do
-          case "${a[i]}" in
-            -[a-zA-Z]* | --[a-zA-Z0-9_-]*)
-              case "${a[i]}" in --wait-timeout | --profile | --project-directory | -f | --f | --project-name | -p) break ;; esac
-              seg+=("$(q "${a[i]}")")
-              i=$((i + 1))
-              ;;
-            *) break ;;
-          esac
-        done
-        lines+=("  ${seg[*]}")
-        ;;
-      *)
-        if [[ "${a[i]}" != -* ]]; then
-          local svcs=()
-          while ((i < ${#a[@]})) && [[ "${a[i]}" != -* ]]; do
-            svcs+=("$(q "${a[i]}")")
-            i=$((i + 1))
-          done
-          lines+=("  ${svcs[*]}")
-        else
-          lines+=("  $(q "${a[i]}")")
-          i=$((i + 1))
-        fi
-        ;;
-    esac
-  done
-  local last=$((${#lines[@]} - 1))
-  local j
-  for ((j = 0; j < last; j++)); do printf '%s \\\n' "${lines[j]}"; done
-  printf '%s\n' "${lines[last]}"
-}
-
 print_detected_services_table() {
   local services="$1" up="$2" done_s="$3" bad_s="$4" started="$5"
   printf '──────────────────────────────────────────────\n'
@@ -303,7 +240,6 @@ print_detected_services_table() {
 # Section 4. Main flow
 # ─────────────────────────────────────────────────────────────────────────────
 execute() {
-  local compose_rc=0
   # 4.1 parse args
   if (($# < 1)); then
     error "No docker command provided. Example: docker compose -f a.yml up -d [--timeout N|-t N]"
@@ -355,10 +291,6 @@ execute() {
   local -a files=("${ctx[@]:1}")
   [[ -z "${COMPOSE_PROJECT_NAME:-}" && -n "$project" ]] && export COMPOSE_PROJECT_NAME="$(basename "$project")"
 
-  echo
-  info "Using global healthcheck timeout (per service): ${DOCKER_HEALTH_TIMEOUT}s"
-  echo
-
   # 4.4 list declared services
   local services
   services="$(get_services_via_config "$project" "${files[@]}" || true)"
@@ -367,8 +299,7 @@ execute() {
     services="$SERVICES_LIST"
   fi
 
-  # 4.5 print and run compose (with tee to temp log)
-  print_command_pretty "${cmd_args[@]}"
+  # 4.5 run compose (with tee to temp log)
   {
     tmp_out="$(mktemp -t compose_out.XXXXXX)" || {
       error "Failed to create temporary file for logging."
@@ -378,7 +309,6 @@ execute() {
     trap cleanup_tmp EXIT
     if ! "${cmd_args[@]}" 2>&1 | tee "$tmp_out"; then
       local rc_left=${PIPESTATUS[0]:-1}
-      compose_rc="$rc_left"
       error "Docker compose failed to start (exit $rc_left):"
       printf '%s\n' "--- docker compose output (last 200 lines) ---"
       tail -n 200 -- "$tmp_out" || true
@@ -393,11 +323,11 @@ execute() {
         [[ -z "$failed" ]] && continue
         printf '\n--- logs for %s ---\n' "$failed"
         docker logs --tail=30 "$failed" 2>/dev/null || true
-      done < <(docker ps -a --format '{{.Names}} {{.Status}}' | awk '$2 ~ /^Exited/ {print $1}')
+      done < <(docker ps -a --format '{{.Names}} {{.State.ExitCode}}' | awk '$2 != 0 {print $1}')
       echo
       info "Additional diagnostic summary:"
-      docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{if .State.Health}}{{.State.Health.Status}}{{else}}<none>{{end}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /' ||
-        warning "Failed to inspect containers for diagnostic summary."
+      docker inspect -f 'Container={{.Name}} ExitCode={{.State.ExitCode}} Status={{.State.Status}} Health={{.State.Health.Status}}' $(docker ps -aq) 2>/dev/null | sed 's/^/  /'
+      exit "$rc_left"
     fi
     cleanup_tmp
     trap - EXIT
@@ -442,29 +372,76 @@ execute() {
   fi
   [[ -z "$started_services" ]] && started_services="$(get_services_via_ps "$project" "${files[@]}" || true)"
 
-  # 4.8 print table
-  print_detected_services_table "$services" "$up_services" "$completed_ok_services" "$exited_bad_services" "$started_services"
-
-  # 4.9 fail fast on exited!=0 one-shots
+  # 4.8 fail fast on exited!=0 one-shots
   if [[ -n "$exited_bad_services" ]]; then
     error "Some one-shot services exited with non-zero code: $exited_bad_services"
     exit 1
   fi
 
-  # 4.10 health-check only running
+  # 4.9 health-check only running
   echo "Checking health status of services (running only)..."
   local to_check="$up_services"
   [[ -z "$to_check" ]] && to_check="$started_services"
   local svc
+
+  local services_checked=0
+  local healthy_count=0
+  local unhealthy_count=0
+  local no_hc_count=0
+  local no_containers_count=0
+  local health_failed=0
+
   while IFS= read -r svc; do
     [[ -n "$svc" ]] || continue
-    check_service_health "$svc" "$DOCKER_HEALTH_TIMEOUT" || exit 1
+    services_checked=$((services_checked + 1))
+    if ! check_service_health "$svc" "$DOCKER_HEALTH_TIMEOUT"; then
+      health_failed=1
+      unhealthy_count=$((unhealthy_count + 1))
+    else
+      healthy_count=$((healthy_count + 1))
+    fi
   done <<<"$(tr ' ' '\n' <<<"$to_check")"
+
+  echo
+  printf '─────────────────────────────────────────────────────────────\n'
+  info "Healthcheck summary"
+  printf '─────────────────────────────────────────────────────────────\n'
+  printf '  Platform:              %s\n' "${DOCKER_DEFAULT_PLATFORM:-<unknown>}"
+  printf '  Global timeout:        %ss (per service)\n' "$DOCKER_HEALTH_TIMEOUT"
+
+  if ((${#cmd_args[@]} > 0)); then
+    printf '  Compose command:\n'
+    printf '      '
+    local __i
+    for __i in "${cmd_args[@]}"; do
+      printf '%q ' "$__i"
+    done
+    printf '\n'
+  fi
+
+  printf '\n'
+  if (( health_failed == 0 )); then
+    printf '  Overall result:        OK (all services healthy)\n'
+  else
+    printf '  Overall result:        FAILED (some services unhealthy)\n'
+  fi
+  printf '  Services checked:      %d\n' "$services_checked"
+  printf '  Healthy:               %d\n' "$healthy_count"
+  printf '  Unhealthy:             %d\n' "$unhealthy_count"
+  printf '  Without healthcheck:   %d\n' "$no_hc_count"
+  printf '  No containers:         %d\n' "$no_containers_count"
+  printf '\n'
+
+  print_detected_services_table "$services" "$up_services" "$completed_ok_services" "$exited_bad_services" "$started_services"
+
+  if (( health_failed != 0 )); then
+    error "Some services failed healthcheck."
+    exit 1
+  fi
 
   echo "Application started successfully!"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Section 5. Entrypoint
 # ─────────────────────────────────────────────────────────────────────────────
 execute "$@"
