@@ -32,20 +32,6 @@
 ## 🖥️ Quick start
 
 1. Define a simple `docker-compose.yml`:
-
-```yaml
-services:
-  web:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-```
-
 2. Add workflow:
 
 ```yaml
@@ -66,21 +52,93 @@ jobs:
           services: "web"
           timeout: "60"
 ```
+---
+
+### 🟢 Healthy example
+
+```text
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/amd64
+  Global timeout:        60s (per service)
+  Compose command:
+      docker compose --project-directory . -f docker-compose.yml up -d web
+
+  Overall result:        OK (all services healthy)
+  Services checked:      1
+  Healthy:               1
+  Unhealthy:             0
+  Without healthcheck:   0
+  No containers:         0
+─────────────────────────────────────────────────────────────
+
+Detected services:
+  1. web  [UP]
+
+Application started successfully!
+```
 
 ---
 
-### Example:
+### 🔴 Unhealthy example
 
-```yaml
-- name: Validate docker services
-  uses: ylazakovich/compose-health-check-action@v1
-  with:
-    compose-project-directory: "."
-    compose-files: |
-      docker-compose.yml
-      docker-compose.override.yml
-    services: "web db redis"
-    timeout: "120"
+```text
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/amd64
+  Global timeout:        10s (per service)
+  Compose command:
+      docker compose --project-directory . -f docker-compose.yml up -d slow-broken
+
+  Overall result:        FAILED (unhealthy services detected)
+  Services checked:      1
+  Healthy:               0
+  Unhealthy:             1
+  Without healthcheck:   0
+  No containers:         0
+
+Unhealthy services:
+  - slow-broken (Health=unhealthy)
+─────────────────────────────────────────────────────────────
+
+Last 50 health logs:
+  wget: can't connect to remote host: Connection refused
+  wget: can't connect to remote host: Connection refused
+  ...
+─────────────────────────────────────────────────────────────
+```
+
+---
+
+### ⚠️ Compose failed example
+
+```text
+ℹ️️️ Diagnostics summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/amd64
+  Global timeout:        10s (per service)
+  Compose command:
+      docker compose --project-directory . -f docker-compose-NOT-FOUND.yml up -d
+
+ℹ️  --- docker compose output (last 25 lines) ---
+open docker-compose-NOT-FOUND.yml: no such file or directory
+─────────────────────────────────────────────────────────────
+
+ℹ️  --- docker compose ps --all ---
+NAME                                        STATUS                     IMAGE
+compose-health-check-action-web-1           Up 2h (healthy)           nginx:1.29-alpine
+compose-health-check-action-slow-broken-1   Up 2h (unhealthy)         python:3.12-alpine
+─────────────────────────────────────────────────────────────
+
+ℹ️  --- docker compose ls (all projects) ---
+compose-health-check-action   running(2)    docker-compose.yml
+─────────────────────────────────────────────────────────────
+
+ℹ️  --- docker ps --all (global) ---
+act-Workflow-when-no-services   Up 2s   ghcr.io/catthehacker/ubuntu:act-latest
+─────────────────────────────────────────────────────────────
 ```
 
 ---
@@ -91,8 +149,8 @@ Run the action locally with a modern GitHub Actions runner image:
 
 ```bash
 act push \
+  --rm \
   -W .github/workflows/healthy.yml \
-  -a linux/amd64 \
   -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-latest
 ```
 
