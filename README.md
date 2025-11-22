@@ -118,7 +118,7 @@ Last 50 health logs:
 
 ```text
 ❌ No services specified. Either:
-    - pass services in docker compose command, e.g. 'docker compose up -d web api'                                                                                                                                                                                                                                          
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'
     - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
 ```
 

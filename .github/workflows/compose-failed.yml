@@ -47,5 +47,5 @@ jobs:
           assert 'docker compose ls \(all projects\)'
           assert 'docker ps --all \(global\)'
           assert 'no such file or directory'
-          
+
           echo "✅ Compose fail diagnostics validated successfully."
