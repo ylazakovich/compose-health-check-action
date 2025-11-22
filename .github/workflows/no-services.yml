@@ -26,8 +26,10 @@ jobs:
           additional-compose-args: ""
 
       - name: Assert that workflow failed due to no services and diagnostics are correct
+        shell: bash {0}
         if: always()
         run: |
+          echo "::add-mask::${{ steps.healthcheck.outputs.summary_b64 }}"
           OUTPUT="$(echo "${{ steps.healthcheck.outputs.summary_b64 }}" | base64 -d)"
 
           assert() {
