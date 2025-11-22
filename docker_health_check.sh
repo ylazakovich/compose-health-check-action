@@ -42,7 +42,7 @@ wait_for_container_health() {
 
   local waited=0
   local interval=2
-  while (( waited < timeout )); do
+  while ((waited < timeout)); do
     local status
     status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
     case "$status" in
@@ -54,7 +54,7 @@ wait_for_container_health() {
         echo "unhealthy"
         return 0
         ;;
-      starting|unknown)
+      starting | unknown)
         sleep "$interval"
         waited=$((waited + interval))
         ;;
@@ -194,7 +194,7 @@ print_unhealthy_services_details() {
 
     echo
     echo "    Last ${DOCKER_HEALTH_LOG_LINES} container log lines:"
-    docker logs --tail "${DOCKER_HEALTH_LOG_LINES}" "$cid" 2>/dev/null | sed 's/^/      /' || \
+    docker logs --tail "${DOCKER_HEALTH_LOG_LINES}" "$cid" 2>/dev/null | sed 's/^/      /' ||
       echo "      <failed to read logs>"
     echo
   done
@@ -327,7 +327,7 @@ execute() {
   echo
 
   echo
-  if (( health_failed == 0 )); then
+  if ((health_failed == 0)); then
     echo "  Overall result:        OK (all services healthy)"
   else
     echo "  Overall result:        FAILED (unhealthy services detected)"
@@ -340,13 +340,13 @@ execute() {
   printf '  No containers:         %d\n' "$no_containers_count"
   echo
 
-  if (( health_failed != 0 )); then
+  if ((health_failed != 0)); then
     print_unhealthy_services_details
   fi
 
   print_detected_services_table "$services" "$up_services"
 
-  if (( health_failed != 0 )); then
+  if ((health_failed != 0)); then
     error "Some services failed healthcheck."
     exit 1
   fi

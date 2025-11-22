@@ -12,6 +12,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
       - name: Run Docker Compose health check (EXPECTED -> NO SERVICES)
         id: healthcheck
         uses: ./.github/actions/compose-health-check
@@ -24,15 +25,24 @@ jobs:
           timeout: "10"
           additional-compose-args: ""
 
-      - name: Assert that workflow failed due to no services
+      - name: Assert that workflow failed due to no services and diagnostics are correct
         if: always()
         run: |
-          echo "Step outcome: ${{ steps.healthcheck.outcome }}"
-          echo "Step conclusion: ${{ steps.healthcheck.conclusion }}"
+          OUTPUT="$(echo "${{ steps.healthcheck.outputs.summary_b64 }}" | base64 -d)"
 
-          if [ "${{ steps.healthcheck.outcome }}" != "failure" ]; then
-            echo "❌ Expected failure due to NO SERVICES, but step succeeded."
-            exit 1
-          fi
+          assert() {
+            local regex="$1"
+            if ! echo "$OUTPUT" | grep -Eq "$regex"; then
+              echo "❌ Expected to match: $regex"
+              echo "   Regex: $regex"
+              exit 1
+            fi
+          }
 
-          echo "✅ Negative test passed: NO SERVICES scenario reproduced successfully."
+          assert 'Diagnostics summary'
+          assert '^  Platform:[[:space:]].+'
+          assert '^  Global timeout:[[:space:]]*10s \(per service\)$'
+          assert 'docker-compose-NOT-FOUND\.yml'
+          assert 'docker compose output \(last 25 lines\)'
+          assert 'no such file or directory'
+          echo "✅ NO SERVICES diagnostics validated successfully."

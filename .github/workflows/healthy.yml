@@ -13,6 +13,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run local Docker Compose health check
+        id: healthcheck
         uses: ./.github/actions/compose-health-check
         with:
           compose-project-directory: "."
@@ -22,3 +23,25 @@ jobs:
           profiles: ""
           timeout: "60"
           additional-compose-args: ""
+
+      - name: Assert healthcheck summary
+        run: |
+          OUTPUT="$(echo "${{ steps.healthcheck.outputs.summary_b64 }}" | base64 -d)"
+
+          assert() {
+            local regex="$1"
+            if ! echo "$OUTPUT" | grep -Eq "$regex"; then
+              echo "❌ Expected to match: $regex"
+              exit 1
+            fi
+          }
+
+          assert '^  Overall result:[[:space:]]*OK \(all services healthy\)$'
+          assert '^  Services checked:[[:space:]]*1$'
+          assert '^  Healthy:[[:space:]]*1$'
+          assert '^  Unhealthy:[[:space:]]*0$'
+          assert '^  Without healthcheck:[[:space:]]*0$'
+          assert '^  No containers:[[:space:]]*0$'
+          assert '^  Global timeout:[[:space:]]*60s \(per service\)$'
+
+          echo "✅ Healthy workflow validated successfully."
