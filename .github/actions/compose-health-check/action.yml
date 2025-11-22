@@ -16,10 +16,6 @@ inputs:
     description: "List of services to start (space-separated). Empty = all services."
     required: false
     default: ""
-  profiles:
-    description: "COMPOSE_PROFILES value, if you use profiles"
-    required: false
-    default: ""
   timeout:
     description: "Healthcheck timeout per service in seconds"
     required: false
@@ -42,8 +38,7 @@ runs:
       shell: bash
       env:
         DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
-        SERVICES_LIST: ${{ inputs.services }}
-        COMPOSE_PROFILES: ${{ inputs.profiles }}
+        DOCKER_SERVICES_LIST: ${{ inputs.services }}
       run: |
         set -euo pipefail
 

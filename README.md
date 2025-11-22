@@ -52,6 +52,7 @@ jobs:
           services: "web"
           timeout: "60"
 ```
+
 ---
 
 ### 🟢 Healthy example
@@ -157,7 +158,7 @@ act push \
 Or execute the checker directly:
 
 ```bash
-./docker_health_check.sh docker compose up -d web
+SERVICES_LIST=web ./docker_health_check.sh docker compose up -d web
 ```
 
 ---

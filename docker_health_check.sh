@@ -76,9 +76,10 @@ check_service_health() {
 
   local failed=0
   local any=0
-  local -a cids=()
-  local waited_c=0
-  local interval_c=2
+
+  local -a cids
+  cids=()
+  local waited_c=0 interval_c=2
 
   local -a project_filter=()
   if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
@@ -93,15 +94,19 @@ check_service_health() {
       ${project_filter+"${project_filter[@]}"} \
       --filter "label=com.docker.compose.service=$service")
 
-    ((${#cids[@]} > 0)) && break
+    if [[ ${cids+set} == set && ${#cids[@]} -gt 0 ]]; then
+      break
+    fi
     ((waited_c >= timeout)) && break
     sleep "$interval_c"
     waited_c=$((waited_c + interval_c))
   done
 
   local cid result
-  for cid in "${cids[@]}"; do
+  for cid in "${cids[@]:-}"; do
+    [[ -n "$cid" ]] || continue
     any=1
+
     result="$(wait_for_container_health "$cid" "$timeout")"
 
     if [[ "$result" == "NO_HEALTHCHECK" ]]; then
@@ -116,22 +121,41 @@ check_service_health() {
 
     if [[ "$result" == "starting" || "$result" == "unknown" ]]; then
       warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
+      if command -v jq >/dev/null 2>&1; then
+        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
+      else
+        warning "'jq' not found; showing raw health JSON"
+        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
+      fi
       failed=1
       continue
     fi
 
     if [[ "$result" == "unhealthy" ]]; then
-      warning "Service '$service' is unhealthy (container $cid)."
-      docker_health_add_unhealthy_target "$service" "$cid"
+      warning "Service '$service' is unhealthy (container $cid). Showing health logs:"
+      if command -v jq >/dev/null 2>&1; then
+        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
+      else
+        warning "'jq' not found; showing raw health JSON"
+        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
+      fi
       failed=1
+      continue
     fi
+
+    warning "Unknown health status '$result' for container $cid"
+    failed=1
   done
 
-  if ((any == 0)); then
-    warning "Service '$service' has no running containers yet; skipping healthcheck."
+  if (( any == 0 )); then
+    warning "Service '$service' has no running containers yet; skipping healthcheck for it."
   fi
 
-  ((failed != 0)) && return 1
+  if (( failed != 0 )); then
+    error "Service '$service' healthcheck failed!!!"
+    return 1
+  fi
+
   return 0
 }
 
@@ -209,6 +233,38 @@ execute() {
   local -a cmd_args=("$@")
   print_command_pretty "${cmd_args[@]}"
 
+  services_from_cmd=()
+  up_index=-1
+  for ((i=0; i<${#cmd_args[@]}; i++)); do
+    if [[ "${cmd_args[i]}" == "up" ]]; then
+      up_index=$i
+      break
+    fi
+  done
+
+  if (( up_index >= 0 )); then
+    for ((j=up_index+1; j<${#cmd_args[@]}; j++)); do
+      token="${cmd_args[j]}"
+      [[ "$token" == "--" ]] && break
+      if [[ "$token" == -* ]]; then
+        continue
+      fi
+      services_from_cmd+=("$token")
+    done
+  fi
+
+  if (( ${#services_from_cmd[@]} > 0 )); then
+    DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
+  else
+    if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
+      error "No services specified. Either:
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
+      exit 1
+    fi
+  fi
+  read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
+
   local compose_rc=0 tmp_out
   tmp_out="$(mktemp)"
 
@@ -258,37 +314,9 @@ execute() {
 
   rm -f "$tmp_out"
 
-  local services="${SERVICES_LIST:-}"
+  local services="${DOCKER_SERVICES_LIST:-}"
   if [[ -z "$services" ]]; then
     services="$(docker compose config --services 2>/dev/null || true)"
-  fi
-
-  if [[ -z "$services" ]]; then
-    error "Could not determine services from docker compose."
-
-    echo
-    echo "🔍  Diagnostics summary"
-    echo "─────────────────────────────────────────────────────────────"
-    printf 'COMPOSE_PROJECT_NAME=%s\n' "${COMPOSE_PROJECT_NAME:-<unset>}"
-    printf 'COMPOSE_PROFILES=%s\n' "${COMPOSE_PROFILES:-<unset>}"
-
-    echo
-    info "--- docker compose ps --all ---"
-    echo "─────────────────────────────────────────────────────────────"
-    docker compose ps --all 2>/dev/null || true
-    echo
-
-    info "--- docker compose ls (all projects) ---"
-    echo "─────────────────────────────────────────────────────────────"
-    docker compose ls 2>/dev/null || true
-    echo
-
-    info "--- docker ps --all (global) ---"
-    echo "─────────────────────────────────────────────────────────────"
-    docker ps --all 2>/dev/null || true
-    echo
-
-    exit 1
   fi
 
   local up_services="$services"
