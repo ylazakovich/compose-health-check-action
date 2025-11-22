@@ -6,6 +6,7 @@
 ![Healthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/healthy.yml/badge.svg)
 ![Unhealthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/unhealthy.yml/badge.svg)
 ![No Services](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/no-services.yml/badge.svg)
+![Compose failed](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/compose-failed.yml/badge.svg)
 
 ---
 
@@ -109,6 +110,16 @@ Last 50 health logs:
   wget: can't connect to remote host: Connection refused
   ...
 ─────────────────────────────────────────────────────────────
+```
+
+---
+
+### ⚠️ No services example
+
+```text
+❌ No services specified. Either:
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'                                                                                                                                                                                                                                          
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
 ```
 
 ---

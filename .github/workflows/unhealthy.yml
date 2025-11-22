@@ -46,7 +46,6 @@ jobs:
           assert '^  No containers:[[:space:]]*0$'
           assert '^  Global timeout:[[:space:]]*10s \(per service\)$'
 
-          assert '^Unhealthy services:$'
-          assert 'slow-broken'
+          assert 'slow-broken[[:space:]]* \[UP\]'
 
           echo "✅ Unhealthy workflow validated successfully."

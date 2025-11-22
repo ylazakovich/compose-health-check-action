@@ -13,6 +13,11 @@ if [[ -n "${HOST_PLATFORM}" ]]; then
 fi
 
 declare -a DOCKER_HEALTH_UNHEALTHY_TARGETS=()
+services_checked=0
+healthy_count=0
+unhealthy_count=0
+no_hc_count=0
+no_containers_count=0
 
 docker_health_add_unhealthy_target() {
   local service="$1"
@@ -74,18 +79,28 @@ check_service_health() {
   local service="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
 
-  local failed=0
-  local any=0
+  # Локальные флаги по конкретному сервису
+  local svc_has_containers=0
+  local svc_healthy=0
+  local svc_unhealthy=0
+  local svc_no_hc=0
 
-  local -a cids
-  cids=()
-  local waited_c=0 interval_c=2
+  local failed=0
+
+  # Контейнеры сервиса
+  local -a cids=()
+  local waited_c=0
+  local interval_c=2
 
   local -a project_filter=()
   if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
     project_filter+=(--filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}")
   fi
 
+  #
+  # 1. Ждём появления хотя бы одного контейнера сервиса,
+  #    но не дольше timeout
+  #
   while :; do
     cids=()
     while IFS= read -r cid; do
@@ -94,65 +109,83 @@ check_service_health() {
       ${project_filter+"${project_filter[@]}"} \
       --filter "label=com.docker.compose.service=$service")
 
-    if [[ ${cids+set} == set && ${#cids[@]} -gt 0 ]]; then
+    if ((${#cids[@]} > 0)); then
+      svc_has_containers=1
       break
     fi
+
     ((waited_c >= timeout)) && break
     sleep "$interval_c"
     waited_c=$((waited_c + interval_c))
   done
 
+  #
+  # 2. Если контейнеров нет — увеличиваем no_containers_count и выходим
+  #
+  if ((svc_has_containers == 0)); then
+    warning "Service '$service' has no running containers; marking as 'No containers'."
+    ((no_containers_count++))
+    ((services_checked++))
+    return 1
+  fi
+
+  #
+  # 3. Проверяем health каждого найденного контейнера
+  #
   local cid result
-  for cid in "${cids[@]:-}"; do
+  for cid in "${cids[@]}"; do
     [[ -n "$cid" ]] || continue
-    any=1
 
     result="$(wait_for_container_health "$cid" "$timeout")"
 
-    if [[ "$result" == "NO_HEALTHCHECK" ]]; then
-      warning "Healthcheck is not configured for service '$service' (container $cid)."
-      continue
-    fi
+    case "$result" in
+      healthy)
+        svc_healthy=1
+        ;;
 
-    if [[ "$result" == "healthy" ]]; then
-      info "Service '$service' is healthy (container $cid)."
-      continue
-    fi
+      unhealthy)
+        svc_unhealthy=1
+        failed=1
+        ;;
 
-    if [[ "$result" == "starting" || "$result" == "unknown" ]]; then
-      warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
-      if command -v jq >/dev/null 2>&1; then
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
-      else
-        warning "'jq' not found; showing raw health JSON"
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
-      fi
-      failed=1
-      continue
-    fi
+      NO_HEALTHCHECK)
+        svc_no_hc=1
+        ;;
 
-    if [[ "$result" == "unhealthy" ]]; then
-      warning "Service '$service' is unhealthy (container $cid). Showing health logs:"
-      if command -v jq >/dev/null 2>&1; then
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
-      else
-        warning "'jq' not found; showing raw health JSON"
-        docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null
-      fi
-      failed=1
-      continue
-    fi
+      starting | unknown)
+        warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
+        svc_unhealthy=1
+        failed=1
+        ;;
 
-    warning "Unknown health status '$result' for container $cid"
-    failed=1
+      *)
+        warning "Unknown health status '$result' for container $cid"
+        svc_unhealthy=1
+        failed=1
+        ;;
+    esac
   done
 
-  if (( any == 0 )); then
-    warning "Service '$service' has no running containers yet; skipping healthcheck for it."
+  #
+  # 4. Обновляем глобальные счётчики по сервису
+  #
+  ((services_checked++))
+
+  if ((svc_unhealthy == 1)); then
+    ((unhealthy_count++))
+    error "Service '$service' healthcheck failed!!!"
+  elif ((svc_healthy == 1 && svc_no_hc == 0)); then
+    ((healthy_count++))
+    info "Service '$service' is healthy."
+  elif ((svc_healthy == 0 && svc_unhealthy == 0 && svc_no_hc == 1)); then
+    ((no_hc_count++))
+    info "Service '$service' has containers but no healthcheck configured."
   fi
 
-  if (( failed != 0 )); then
-    error "Service '$service' healthcheck failed!!!"
+  #
+  # 5. Возвращаем статус
+  #
+  if ((failed != 0)); then
     return 1
   fi
 
@@ -235,15 +268,15 @@ execute() {
 
   services_from_cmd=()
   up_index=-1
-  for ((i=0; i<${#cmd_args[@]}; i++)); do
+  for ((i = 0; i < ${#cmd_args[@]}; i++)); do
     if [[ "${cmd_args[i]}" == "up" ]]; then
       up_index=$i
       break
     fi
   done
 
-  if (( up_index >= 0 )); then
-    for ((j=up_index+1; j<${#cmd_args[@]}; j++)); do
+  if ((up_index >= 0)); then
+    for ((j = up_index + 1; j < ${#cmd_args[@]}; j++)); do
       token="${cmd_args[j]}"
       [[ "$token" == "--" ]] && break
       if [[ "$token" == -* ]]; then
@@ -253,7 +286,7 @@ execute() {
     done
   fi
 
-  if (( ${#services_from_cmd[@]} > 0 )); then
+  if ((${#services_from_cmd[@]} > 0)); then
     DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
   else
     if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
@@ -323,22 +356,12 @@ execute() {
 
   echo "Checking health status of services (running only)..."
   local svc
-  local services_checked=0
-  local healthy_count=0
-  local unhealthy_count=0
-  local no_hc_count=0
-  local no_containers_count=0
   local health_failed=0
 
   while IFS= read -r svc; do
-    [[ -z "$svc" ]] && continue
-    services_checked=$((services_checked + 1))
-
+    [[ -n "$svc" ]] || continue
     if ! check_service_health "$svc" "$DOCKER_HEALTH_TIMEOUT"; then
       health_failed=1
-      unhealthy_count=$((unhealthy_count + 1))
-    else
-      healthy_count=$((healthy_count + 1))
     fi
   done <<<"$(tr ' ' '\n' <<<"$up_services")"
 
