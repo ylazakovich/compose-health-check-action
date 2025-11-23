@@ -21,7 +21,6 @@ runs:
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
 
-        cd "$project_dir"
         CMD=(docker compose)
 
         while IFS= read -r file; do
