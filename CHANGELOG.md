@@ -1,5 +1,3 @@
-## v1.0.0 - Release ()
-
 ## v0.1.1 (23.11.2025)
 
 **Bugfix & Stability Release**
