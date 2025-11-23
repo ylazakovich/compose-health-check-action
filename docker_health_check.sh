@@ -206,23 +206,43 @@ print_unhealthy_services_details() {
 
   echo
   echo "Unhealthy services:"
-  local item svc cid
+  local item svc cid status raw_json line
 
   for item in "${DOCKER_HEALTH_UNHEALTHY_TARGETS[@]}"; do
     svc="${item%%|*}"
     cid="${item#*|}"
 
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+
     echo "  - $svc (container $cid)"
-    echo "    Health:"
+    echo "    Health status: $status"
+
+    raw_json="$(docker inspect -f '{{json .State.Health.Log}}' "$cid" 2>/dev/null || echo '[]')"
+
+    echo "    Last ${DOCKER_HEALTH_LOG_LINES} health probe outputs:"
     if command -v jq >/dev/null 2>&1; then
-      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq || true
+      echo "$raw_json" \
+        | jq -r '.[-'"$DOCKER_HEALTH_LOG_LINES"':] | .[].Output' \
+        | while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            printf '      %s\n' "$line"
+          done
     else
-      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || true
+      echo "$raw_json" \
+        | sed -n 's/.*"Output":[[:space:]]*"\(.*\)".*/\1/p' \
+        | tail -n "$DOCKER_HEALTH_LOG_LINES" \
+        | while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            printf '      %s\n' "$line"
+          done
     fi
 
     echo
     echo "    Last ${DOCKER_HEALTH_LOG_LINES} container log lines:"
-    docker logs --tail "$DOCKER_HEALTH_LOG_LINES" "$cid" 2>&1 || true
+    docker logs --tail "$DOCKER_HEALTH_LOG_LINES" "$cid" 2>&1 \
+      | while IFS= read -r line; do
+          printf '      %s\n' "$line"
+        done
     echo
   done
 }
