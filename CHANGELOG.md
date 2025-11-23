@@ -1,3 +1,7 @@
+## v1.0.1 (23.11.2025)
+
+- patch: resolve issue with additional-compose-args (#17)
+
 ## v0.1.1 (23.11.2025)
 
 **Bugfix & Stability Release**

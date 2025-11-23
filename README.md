@@ -68,7 +68,7 @@ jobs:
   Platform:              linux/amd64
   Global timeout:        60s (per service)
   Compose command:
-      docker compose --project-directory . -f docker-compose.yml up -d web
+      docker compose -f docker-compose.yml up -d web
 
   Overall result:        OK (all services healthy)
   Services checked:      1
@@ -96,7 +96,7 @@ Application started successfully!
   Platform:              linux/amd64
   Global timeout:        10s (per service)
   Compose command:
-      docker compose --project-directory . -f docker-compose.yml up -d slow-broken
+      docker compose -f docker-compose.yml up -d slow-broken
 
   Overall result:        FAILED (unhealthy services detected)
   Services checked:      1
@@ -136,7 +136,7 @@ Last 50 health logs:
   Platform:              linux/amd64
   Global timeout:        10s (per service)
   Compose command:
-      docker compose --project-directory . -f docker-compose-NOT-FOUND.yml up -d
+      docker compose -f docker-compose-NOT-FOUND.yml up -d
 
 ℹ️  --- docker compose output (last 25 lines) ---
 open docker-compose-NOT-FOUND.yml: no such file or directory
