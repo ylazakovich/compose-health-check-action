@@ -13,7 +13,7 @@ inputs:
     default: |
       docker-compose.yml
   services:
-    description: "List of services to start (space-separated). Empty = all services."
+    description: "List of services to start (space-separated)."
     required: false
     default: ""
   timeout:
