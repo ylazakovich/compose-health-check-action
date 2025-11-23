@@ -64,10 +64,6 @@ runs:
           CMD+=("${svc_arr[@]}")
         fi
 
-        echo "Running docker compose via docker_health_check.sh with command:"
-        printf '  %q' "${CMD[@]}"
-        echo
-
         TMP_OUT="$(mktemp)"
 
         set +e
