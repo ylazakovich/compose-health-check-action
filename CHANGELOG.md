@@ -1,6 +1,40 @@
-## v1.0.0 - Release
+## v1.0.0 - Release ()
 
-## v0.1.0 — Pre-release for internal testing
+## v0.1.1 (23.11.2025)
+
+**Bugfix & Stability Release**
+
+This release significantly improves the reliability and consistency of the action in real CI environments, especially when using multi-file Docker Compose setups and nested directory structures.
+
+### 🚀 Improved
+
+- Enhanced compatibility between GitHub Runners and Docker Compose.
+- Removed the `--project-directory` flag to prevent incorrect path resolution on GitHub Actions.
+- Ensured consistent behavior both locally (`act`) and on GitHub-hosted runners.
+- The `docker compose config --services` command is now executed with the same `-f ...` flags as the main `docker compose` invocation, providing accurate service detection.
+- Improved the **Detected services** section — all services from the compose configuration are now listed correctly.
+- Increased stability of the healthcheck cycle for large multi-service Docker Compose stacks.
+
+### 🐛 Fixed
+
+- Fixed an issue where the “Detected services” table appeared empty in external projects.
+- Corrected the working directory resolution inside GitHub Action runs.
+- Eliminated GitHub Actions warnings:  
+  _“Unexpected input(s) … valid inputs are …”_  
+  caused by legacy internal action paths in CI tests.
+- Internal CI now properly uses the root-level `action.yml` instead of the legacy subdirectory version.
+- Resolved issues that appeared after moving `action.yml` to the repository root.
+
+### 🔧 Internal
+
+- Refactored `docker_health_check.sh`:
+  - improved construction of the main compose command,
+  - unified behavior between local shells and GitHub Runners,
+  - added groundwork for future support of job-like services (`exited 0` behavior).
+
+---
+
+## v0.1.0 — Pre-release for internal testing (23.11.2025)
 
 This is the first pre-release of the Compose Health Check Action.
 
