@@ -52,12 +52,12 @@ runs:
           fi
         done <<<"$compose_files_input"
 
+        CMD+=(up -d)
+
         if [[ -n "$additional_args_input" ]]; then
           extra_args=( $additional_args_input )
           CMD+=("${extra_args[@]}")
         fi
-
-        CMD+=(up -d)
 
         if [[ -n "$services_input" ]]; then
           svc_arr=( $services_input )
@@ -73,7 +73,5 @@ runs:
 
         OUTPUT_B64="$(base64 <"$TMP_OUT" | tr -d '\n')"
         echo "summary_b64=$OUTPUT_B64" >>"$GITHUB_OUTPUT"
-
         rm -f "$TMP_OUT"
-
         exit "$rc"
