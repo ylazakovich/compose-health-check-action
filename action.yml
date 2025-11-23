@@ -1,35 +1,3 @@
-name: "Docker Compose Health Check"
-description: "Runs docker compose and validates container health"
-author: "Yaraslau Lazakovich"
-
-inputs:
-  compose-project-directory:
-    description: "Path to directory with docker-compose files"
-    required: false
-    default: "."
-  compose-files:
-    description: "List of docker-compose files (one per line)"
-    required: false
-    default: |
-      docker-compose.yml
-  services:
-    description: "List of services to start (space-separated)."
-    required: false
-    default: ""
-  timeout:
-    description: "Healthcheck timeout per service in seconds"
-    required: false
-    default: "120"
-  additional-compose-args:
-    description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
-    required: false
-    default: ""
-
-outputs:
-  summary_b64:
-    description: "Base64-encoded output of healthcheck"
-    value: ${{ steps.run_healthcheck.outputs.summary_b64 }}
-
 runs:
   using: "composite"
   steps:
@@ -45,17 +13,16 @@ runs:
         SCRIPT_DIR="${GITHUB_ACTION_PATH}"
 
         project_dir="${{ inputs.compose-project-directory }}"
-        project_dir="$(cd "$project_dir" && pwd)"
+        if [[ -z "$project_dir" || "$project_dir" == "." ]]; then
+          project_dir="${GITHUB_WORKSPACE}"
+        fi
 
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
 
+        cd "$project_dir"
         CMD=(docker compose)
-
-        if [[ -n "$project_dir" ]]; then
-          CMD+=(--project-directory "$project_dir")
-        fi
 
         while IFS= read -r file; do
           if [[ -n "$file" ]]; then
