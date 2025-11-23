@@ -16,7 +16,6 @@ jobs:
         id: healthcheck
         uses: ./
         with:
-          compose-project-directory: "."
           compose-files: |
             docker-compose.yml
           services: "web"

@@ -26,15 +26,6 @@ docker_health_add_unhealthy_target() {
   DOCKER_HEALTH_UNHEALTHY_TARGETS+=("${service}|${cid}")
 }
 
-print_command_pretty() {
-  printf 'Running docker compose via docker_health_check.sh with command:\n  '
-  local part
-  for part in "$@"; do
-    printf '%q ' "$part"
-  done
-  echo
-}
-
 wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
@@ -165,7 +156,7 @@ check_service_health() {
     info "Service '$service' is healthy."
   elif ((svc_healthy == 0 && svc_unhealthy == 0 && svc_no_hc == 1)); then
     ((no_hc_count++))
-    info "Service '$service' has containers but no healthcheck configured."
+    warning "Service '$service' has containers but no healthcheck configured."
   fi
 
   if ((failed != 0)); then
@@ -255,8 +246,6 @@ execute() {
 
   local -a cmd_args=("$@")
 
-  print_command_pretty "${cmd_args[@]}"
-
   local -a services_from_cmd=()
   local i token
   local up_index=-1
@@ -339,9 +328,20 @@ execute() {
 
   rm -f "$tmp_out"
 
-  # Полный список сервисов из docker compose config — для таблицы Detected services
+  local -a cfg_cmd=("docker" "compose")
+  local j
+
+  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
+    if [[ "${cmd_args[j]}" == "up" ]]; then
+      break
+    fi
+    cfg_cmd+=("${cmd_args[j]}")
+  done
+
+  cfg_cmd+=(config --services)
+
   local all_services
-  all_services="$(docker compose config --services 2>/dev/null || true)"
+  all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"
 
   echo "Checking health status of services (running only)..."
   local svc

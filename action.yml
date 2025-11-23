@@ -3,10 +3,6 @@ description: "Runs docker compose and validates container health"
 author: "Yaraslau Lazakovich"
 
 inputs:
-  compose-project-directory:
-    description: "Path to directory with docker-compose files"
-    required: false
-    default: "."
   compose-files:
     description: "List of docker-compose files (one per line)"
     required: false
@@ -44,18 +40,11 @@ runs:
 
         SCRIPT_DIR="${GITHUB_ACTION_PATH}"
 
-        project_dir="${{ inputs.compose-project-directory }}"
-        project_dir="$(cd "$project_dir" && pwd)"
-
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
 
         CMD=(docker compose)
-
-        if [[ -n "$project_dir" ]]; then
-          CMD+=(--project-directory "$project_dir")
-        fi
 
         while IFS= read -r file; do
           if [[ -n "$file" ]]; then
@@ -74,10 +63,6 @@ runs:
           svc_arr=( $services_input )
           CMD+=("${svc_arr[@]}")
         fi
-
-        echo "Running docker compose via docker_health_check.sh with command:"
-        printf '  %q' "${CMD[@]}"
-        echo
 
         TMP_OUT="$(mktemp)"
 
