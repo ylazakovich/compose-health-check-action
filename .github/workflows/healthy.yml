@@ -20,7 +20,7 @@ jobs:
             docker-compose.yml
           services: "web"
           timeout: "60"
-          additional-compose-args: ""
+          additional-compose-args: "--quiet-pull"
 
       - name: Assert healthcheck summary
         run: |
