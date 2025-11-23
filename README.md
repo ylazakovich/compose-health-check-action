@@ -1,7 +1,9 @@
 # 🐳 Compose Health Check Action
 
-![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/ylazakovich/compose-health-check-action)
+
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
+![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 
 ![Healthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/healthy.yml/badge.svg)
 ![Unhealthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/unhealthy.yml/badge.svg)
