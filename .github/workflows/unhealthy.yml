@@ -50,7 +50,7 @@ jobs:
           assert 'connect to remote host: Connection refused'
           assert 'Last 25 container log lines'
           assert 'Starting slow service...'
-          
+
           assert 'slow-broken[[:space:]]* \[UP\]'
           assert 'web[[:space:]]* \[SKIP\]'
 
