@@ -31,7 +31,7 @@ print_command_pretty() {
   for part in "$@"; do
     printf '%q ' "$part"
   done
-  printf '\n'
+  echo
 }
 
 wait_for_container_health() {
@@ -50,6 +50,7 @@ wait_for_container_health() {
   while ((waited < timeout)); do
     local status
     status="$(docker inspect -f '{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+
     case "$status" in
       healthy)
         echo "healthy"
@@ -79,7 +80,6 @@ check_service_health() {
   local service="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
 
-  # Локальные флаги по конкретному сервису
   local svc_has_containers=0
   local svc_healthy=0
   local svc_unhealthy=0
@@ -87,7 +87,6 @@ check_service_health() {
 
   local failed=0
 
-  # Контейнеры сервиса
   local -a cids=()
   local waited_c=0
   local interval_c=2
@@ -97,10 +96,6 @@ check_service_health() {
     project_filter+=(--filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}")
   fi
 
-  #
-  # 1. Ждём появления хотя бы одного контейнера сервиса,
-  #    но не дольше timeout
-  #
   while :; do
     cids=()
     while IFS= read -r cid; do
@@ -119,9 +114,6 @@ check_service_health() {
     waited_c=$((waited_c + interval_c))
   done
 
-  #
-  # 2. Если контейнеров нет — увеличиваем no_containers_count и выходим
-  #
   if ((svc_has_containers == 0)); then
     warning "Service '$service' has no running containers; marking as 'No containers'."
     ((no_containers_count++))
@@ -129,9 +121,6 @@ check_service_health() {
     return 1
   fi
 
-  #
-  # 3. Проверяем health каждого найденного контейнера
-  #
   local cid result
   for cid in "${cids[@]}"; do
     [[ -n "$cid" ]] || continue
@@ -142,22 +131,18 @@ check_service_health() {
       healthy)
         svc_healthy=1
         ;;
-
       unhealthy)
         svc_unhealthy=1
         failed=1
         ;;
-
       NO_HEALTHCHECK)
         svc_no_hc=1
         ;;
-
       starting | unknown)
         warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
         svc_unhealthy=1
         failed=1
         ;;
-
       *)
         warning "Unknown health status '$result' for container $cid"
         svc_unhealthy=1
@@ -166,9 +151,6 @@ check_service_health() {
     esac
   done
 
-  #
-  # 4. Обновляем глобальные счётчики по сервису
-  #
   ((services_checked++))
 
   if ((svc_unhealthy == 1)); then
@@ -182,9 +164,6 @@ check_service_health() {
     info "Service '$service' has containers but no healthcheck configured."
   fi
 
-  #
-  # 5. Возвращаем статус
-  #
   if ((failed != 0)); then
     return 1
   fi
@@ -227,47 +206,38 @@ print_unhealthy_services_details() {
   local item svc cid
 
   for item in "${DOCKER_HEALTH_UNHEALTHY_TARGETS[@]}"; do
-    IFS='|' read -r svc cid <<<"$item"
-    echo "  - ${svc} (container ${cid})"
+    svc="${item%%|*}"
+    cid="${item#*|}"
 
+    echo "  - $svc (container $cid)"
+    echo "    Health:"
     if command -v jq >/dev/null 2>&1; then
-      local health_json
-      health_json="$(docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || echo '{}')"
-
-      local status failing
-      status="$(jq -r '.Status // "<none>"' <<<"$health_json")"
-      failing="$(jq -r '.FailingStreak // 0' <<<"$health_json")"
-
-      echo "    Health:         ${status}"
-      echo "    Failing streak: ${failing}"
-      echo "    Last probes:"
-
-      jq -r '.Log // [] | (.[-5:] // .)[] | "      • ExitCode=\(.ExitCode)  \(.Output|tostring|gsub("\n$";""))"' \
-        <<<"$health_json" || echo "      • <no entries>"
+      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
     else
-      echo "    Health details (raw JSON):"
-      docker inspect --format='{{json .State.Health}}' "$cid" | sed 's/^/      /'
+      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || true
     fi
 
     echo
     echo "    Last ${DOCKER_HEALTH_LOG_LINES} container log lines:"
-    docker logs --tail "${DOCKER_HEALTH_LOG_LINES}" "$cid" 2>/dev/null | sed 's/^/      /' ||
-      echo "      <failed to read logs>"
+    docker logs --tail "$DOCKER_HEALTH_LOG_LINES" "$cid" 2>&1 || true
     echo
   done
 }
 
 execute() {
-  if (("$#" == 0)); then
-    error "Usage: $0 docker compose [args...]"
+  if (($# == 0)); then
+    echo "Usage: $0 docker compose [args...]"
     exit 1
   fi
 
   local -a cmd_args=("$@")
+
   print_command_pretty "${cmd_args[@]}"
 
-  services_from_cmd=()
-  up_index=-1
+  local -a services_from_cmd=()
+  local i token
+  local up_index=-1
+
   for ((i = 0; i < ${#cmd_args[@]}; i++)); do
     if [[ "${cmd_args[i]}" == "up" ]]; then
       up_index=$i
@@ -276,8 +246,8 @@ execute() {
   done
 
   if ((up_index >= 0)); then
-    for ((j = up_index + 1; j < ${#cmd_args[@]}; j++)); do
-      token="${cmd_args[j]}"
+    for ((i = up_index + 1; i < ${#cmd_args[@]}; i++)); do
+      token="${cmd_args[i]}"
       [[ "$token" == "--" ]] && break
       if [[ "$token" == -* ]]; then
         continue
@@ -347,23 +317,19 @@ execute() {
 
   rm -f "$tmp_out"
 
-  local services="${DOCKER_SERVICES_LIST:-}"
-  if [[ -z "$services" ]]; then
-    services="$(docker compose config --services 2>/dev/null || true)"
-  fi
-
-  local up_services="$services"
+  local all_services
+  all_services="$(docker compose config --services 2>/dev/null || true)"
 
   echo "Checking health status of services (running only)..."
   local svc
   local health_failed=0
 
-  while IFS= read -r svc; do
+  for svc in "${services_to_check[@]}"; do
     [[ -n "$svc" ]] || continue
     if ! check_service_health "$svc" "$DOCKER_HEALTH_TIMEOUT"; then
       health_failed=1
     fi
-  done <<<"$(tr ' ' '\n' <<<"$up_services")"
+  done
 
   echo
   echo "─────────────────────────────────────────────────────────────"
@@ -395,7 +361,7 @@ execute() {
     print_unhealthy_services_details
   fi
 
-  print_detected_services_table "$services" "$up_services"
+  print_detected_services_table "$all_services" "${DOCKER_SERVICES_LIST:-}"
 
   if ((health_failed != 0)); then
     error "Some services failed healthcheck."

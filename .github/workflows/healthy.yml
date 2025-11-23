@@ -44,5 +44,6 @@ jobs:
           assert '^  Global timeout:[[:space:]]*60s \(per service\)$'
 
           assert 'web[[:space:]]* \[UP\]'
+          assert 'slow-broken[[:space:]]* \[SKIP\]'
 
           echo "✅ Healthy workflow validated successfully."
