@@ -156,7 +156,7 @@ check_service_health() {
     info "Service '$service' is healthy."
   elif ((svc_healthy == 0 && svc_unhealthy == 0 && svc_no_hc == 1)); then
     ((no_hc_count++))
-    info "Service '$service' has containers but no healthcheck configured."
+    warning "Service '$service' has containers but no healthcheck configured."
   fi
 
   if ((failed != 0)); then
