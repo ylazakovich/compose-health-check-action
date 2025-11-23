@@ -46,6 +46,11 @@ jobs:
           assert '^  No containers:[[:space:]]*0$'
           assert '^  Global timeout:[[:space:]]*10s \(per service\)$'
 
+          assert 'Last 25 health probe outputs'
+          assert 'connect to remote host: Connection refused'
+          assert 'Last 25 container log lines'
+          assert 'Starting slow service...'
+          
           assert 'slow-broken[[:space:]]* \[UP\]'
           assert 'web[[:space:]]* \[SKIP\]'
 
