@@ -2,6 +2,10 @@ name: "Docker Compose Health Check"
 description: "Runs docker compose and validates container health"
 author: "Yaraslau Lazakovich"
 
+branding:
+  icon: "check-circle"
+  color: "blue"
+
 inputs:
   compose-files:
     description: "List of docker-compose files (one per line)"
