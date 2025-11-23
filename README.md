@@ -76,7 +76,8 @@ jobs:
 ─────────────────────────────────────────────────────────────
 
 Detected services:
-  1. web  [UP]
+  1. slow-broken [SKIP]
+  2. web         [UP]
 
 Application started successfully!
 ```
@@ -169,7 +170,7 @@ act push \
 Or execute the checker directly:
 
 ```bash
-SERVICES_LIST=web ./docker_health_check.sh docker compose up -d web
+./docker_health_check.sh docker compose up -d web
 ```
 
 ---

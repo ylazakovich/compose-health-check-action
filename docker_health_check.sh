@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/logging.sh"
 
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
-DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-10}"
+DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-25}"
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
@@ -13,6 +13,7 @@ if [[ -n "${HOST_PLATFORM}" ]]; then
 fi
 
 declare -a DOCKER_HEALTH_UNHEALTHY_TARGETS=()
+
 services_checked=0
 healthy_count=0
 unhealthy_count=0
@@ -134,6 +135,7 @@ check_service_health() {
       unhealthy)
         svc_unhealthy=1
         failed=1
+        docker_health_add_unhealthy_target "$service" "$cid"
         ;;
       NO_HEALTHCHECK)
         svc_no_hc=1
@@ -142,11 +144,13 @@ check_service_health() {
         warning "Service '$service' did not reach 'healthy' in ${timeout}s (container $cid). State.Health.Status: $result"
         svc_unhealthy=1
         failed=1
+        docker_health_add_unhealthy_target "$service" "$cid"
         ;;
       *)
         warning "Unknown health status '$result' for container $cid"
         svc_unhealthy=1
         failed=1
+        docker_health_add_unhealthy_target "$service" "$cid"
         ;;
     esac
   done
@@ -175,9 +179,9 @@ print_detected_services_table() {
   local all="$1"
   local up="$2"
 
-  echo "──────────────────────────────────────────────"
+  printf '──────────────────────────────────────────────\n'
   info "Detected services:"
-  echo "──────────────────────────────────────────────"
+  printf '──────────────────────────────────────────────\n'
 
   local idx=1 line maxlen=0
 
@@ -194,8 +198,7 @@ print_detected_services_table() {
     idx=$((idx + 1))
   done <<<"$(tr ' ' '\n' <<<"$all")"
 
-  echo "──────────────────────────────────────────────"
-  echo
+  printf '──────────────────────────────────────────────\n\n'
 }
 
 print_unhealthy_services_details() {
@@ -212,7 +215,7 @@ print_unhealthy_services_details() {
     echo "  - $svc (container $cid)"
     echo "    Health:"
     if command -v jq >/dev/null 2>&1; then
-      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq
+      docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null | jq || true
     else
       docker inspect --format='{{json .State.Health}}' "$cid" 2>/dev/null || true
     fi
@@ -290,7 +293,6 @@ execute() {
     echo
     info "--- docker compose output (last 25 lines) ---"
     echo "─────────────────────────────────────────────────────────────"
-
     tail -n 25 "$tmp_out" || true
     rm -f "$tmp_out"
 
@@ -317,6 +319,7 @@ execute() {
 
   rm -f "$tmp_out"
 
+  # Полный список сервисов из docker compose config — для таблицы Detected services
   local all_services
   all_services="$(docker compose config --services 2>/dev/null || true)"
 
