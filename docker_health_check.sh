@@ -328,9 +328,20 @@ execute() {
 
   rm -f "$tmp_out"
 
-  # Полный список сервисов из docker compose config — для таблицы Detected services
+  local -a cfg_cmd=("docker" "compose")
+  local j
+
+  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
+    if [[ "${cmd_args[j]}" == "up" ]]; then
+      break
+    fi
+    cfg_cmd+=("${cmd_args[j]}")
+  done
+
+  cfg_cmd+=(config --services)
+
   local all_services
-  all_services="$(docker compose config --services 2>/dev/null || true)"
+  all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"
 
   echo "Checking health status of services (running only)..."
   local svc
