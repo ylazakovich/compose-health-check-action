@@ -125,7 +125,7 @@ Last 50 health logs:
 
 ---
 
-### ⚠️ Compose failed example
+### ❌ Compose failed example
 
 ```text
 ℹ️️️ Diagnostics summary
