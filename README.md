@@ -1,7 +1,6 @@
-# 🐳 Compose Health Check Action
+# 🐳 Compose DevOps Healthcheck
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/ylazakovich/compose-health-check-action)
-![License](https://img.shields.io/github/license/ylazakovich/compose-health-check-action)
 
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 ![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
