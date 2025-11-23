@@ -13,11 +13,7 @@ inputs:
     default: |
       docker-compose.yml
   services:
-    description: "List of services to start (space-separated). Empty = all services."
-    required: false
-    default: ""
-  profiles:
-    description: "COMPOSE_PROFILES value, if you use profiles"
+    description: "List of services to start (space-separated)."
     required: false
     default: ""
   timeout:
@@ -29,15 +25,20 @@ inputs:
     required: false
     default: ""
 
+outputs:
+  summary_b64:
+    description: "Base64-encoded output of healthcheck"
+    value: ${{ steps.run_healthcheck.outputs.summary_b64 }}
+
 runs:
   using: "composite"
   steps:
-    - name: Run docker compose with health check
+    - id: run_healthcheck
+      name: Run docker compose with health check
       shell: bash
       env:
         DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
-        SERVICES_LIST: ${{ inputs.services }}
-        COMPOSE_PROFILES: ${{ inputs.profiles }}
+        DOCKER_SERVICES_LIST: ${{ inputs.services }}
       run: |
         set -euo pipefail
 
@@ -63,7 +64,6 @@ runs:
         done <<<"$compose_files_input"
 
         if [[ -n "$additional_args_input" ]]; then
-          # shellcheck disable=SC2206
           extra_args=( $additional_args_input )
           CMD+=("${extra_args[@]}")
         fi
@@ -71,7 +71,6 @@ runs:
         CMD+=(up -d)
 
         if [[ -n "$services_input" ]]; then
-          # shellcheck disable=SC2206
           svc_arr=( $services_input )
           CMD+=("${svc_arr[@]}")
         fi
@@ -80,4 +79,16 @@ runs:
         printf '  %q' "${CMD[@]}"
         echo
 
-        bash "${SCRIPT_DIR}/docker_health_check.sh" "${CMD[@]}"
+        TMP_OUT="$(mktemp)"
+
+        set +e
+        bash "${SCRIPT_DIR}/docker_health_check.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
+        rc=${PIPESTATUS[0]}
+        set -e
+
+        OUTPUT_B64="$(base64 <"$TMP_OUT" | tr -d '\n')"
+        echo "summary_b64=$OUTPUT_B64" >>"$GITHUB_OUTPUT"
+
+        rm -f "$TMP_OUT"
+
+        exit "$rc"
