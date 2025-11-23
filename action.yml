@@ -54,7 +54,7 @@ runs:
         services_input="${{ inputs.services }}"
 
         CMD=(docker compose)
-        
+
         if [[ -n "$project_dir" ]]; then
           CMD+=(--project-directory "$project_dir")
         fi
