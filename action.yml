@@ -1,4 +1,4 @@
-name: "Docker Compose Health Check"
+name: "Compose DevOps Healthcheck"
 description: "Runs docker compose and validates container health"
 author: "Yaraslau Lazakovich"
 
