@@ -26,15 +26,6 @@ docker_health_add_unhealthy_target() {
   DOCKER_HEALTH_UNHEALTHY_TARGETS+=("${service}|${cid}")
 }
 
-print_command_pretty() {
-  printf 'Running docker compose via docker_health_check.sh with command:\n  '
-  local part
-  for part in "$@"; do
-    printf '%q ' "$part"
-  done
-  echo
-}
-
 wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
@@ -254,8 +245,6 @@ execute() {
   fi
 
   local -a cmd_args=("$@")
-
-  print_command_pretty "${cmd_args[@]}"
 
   local -a services_from_cmd=()
   local i token
