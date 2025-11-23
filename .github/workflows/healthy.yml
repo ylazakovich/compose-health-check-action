@@ -14,7 +14,7 @@ jobs:
 
       - name: Run local Docker Compose health check
         id: healthcheck
-        uses: ./.github/actions/compose-health-check
+        uses: ./
         with:
           compose-project-directory: "."
           compose-files: |

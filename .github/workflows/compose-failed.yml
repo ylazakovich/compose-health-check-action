@@ -15,7 +15,7 @@ jobs:
 
       - name: Run Docker Compose health check (EXPECTED -> COMPOSE FAILED)
         id: healthcheck
-        uses: ./.github/actions/compose-health-check
+        uses: ./
         continue-on-error: true
         with:
           compose-project-directory: "."
