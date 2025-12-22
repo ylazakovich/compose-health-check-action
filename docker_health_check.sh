@@ -30,6 +30,18 @@ wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
 
+  local state_status exit_code
+  state_status="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+  if [[ "$state_status" == "exited" || "$state_status" == "dead" ]]; then
+    exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "1")"
+    if [[ "$exit_code" == "0" ]]; then
+      echo "exited_0"
+    else
+      echo "exited_${exit_code}"
+    fi
+    return 0
+  fi
+
   local has_health
   has_health="$(docker inspect -f '{{if .State.Health}}yes{{end}}' "$cid" 2>/dev/null || true)"
   if [[ "$has_health" != "yes" ]]; then
@@ -92,7 +104,7 @@ check_service_health() {
     cids=()
     while IFS= read -r cid; do
       [[ -n "$cid" ]] && cids+=("$cid")
-    done < <(docker ps --no-trunc -q \
+    done < <(docker ps --all --no-trunc -q \
       ${project_filter+"${project_filter[@]}"} \
       --filter "label=com.docker.compose.service=$service")
 
@@ -107,7 +119,7 @@ check_service_health() {
   done
 
   if ((svc_has_containers == 0)); then
-    warning "Service '$service' has no running containers; marking as 'No containers'."
+    warning "Service '$service' has no containers (running or stopped); marking as 'No containers'."
     ((no_containers_count++))
     ((services_checked++))
     return 1
@@ -121,7 +133,17 @@ check_service_health() {
 
     case "$result" in
       healthy)
+
         svc_healthy=1
+        ;;
+      exited_0)
+        # One-shot container finished successfully. Treat as success, but not 'healthy'.
+        svc_no_hc=1
+        ;;
+      exited_*)
+        svc_unhealthy=1
+        failed=1
+        docker_health_add_unhealthy_target "$service" "$cid"
         ;;
       unhealthy)
         svc_unhealthy=1
@@ -166,31 +188,120 @@ check_service_health() {
   return 0
 }
 
+get_service_runtime_tag() {
+  local service="$1"
+
+  local -a project_filter=()
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    project_filter+=(--filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}")
+  fi
+
+  local -a cids=()
+  while IFS= read -r cid; do
+    [[ -n "$cid" ]] && cids+=("$cid")
+  done < <(docker ps --all --no-trunc -q \
+      ${project_filter+"${project_filter[@]}"} \
+      --filter "label=com.docker.compose.service=$service")
+
+  if ((${#cids[@]} == 0)); then
+    echo "NO_CONTAINERS"
+    return 0
+  fi
+
+  local any_running=0 any_healthy=0 any_unhealthy=0 any_completed=0 any_failed=0 any_starting=0
+
+  local cid state health exit_code
+  for cid in "${cids[@]}"; do
+    state="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+
+    if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+      exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "1")"
+      if [[ "$exit_code" == "0" ]]; then
+        any_completed=1
+      else
+        any_failed=1
+      fi
+      continue
+    fi
+
+    if [[ "$state" == "running" ]]; then
+      any_running=1
+      health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$cid" 2>/dev/null || echo "")"
+      case "$health" in
+        healthy) any_healthy=1 ;;
+        unhealthy) any_unhealthy=1 ;;
+        starting) any_starting=1 ;;
+        "") : ;;
+        *) any_starting=1 ;;
+      esac
+    else
+      any_starting=1
+    fi
+  done
+
+  if ((any_failed == 1)); then
+    echo "FAILED"
+  elif ((any_unhealthy == 1)); then
+    echo "UNHEALTHY"
+  elif ((any_healthy == 1)); then
+    echo "HEALTHY"
+  elif ((any_running == 1)); then
+    # running but no healthcheck (or still starting)
+    echo "UP"
+  elif ((any_completed == 1)); then
+    echo "COMPLETED"
+  else
+    echo "UP"
+  fi
+}
+
 print_detected_services_table() {
   local all="$1"
   local up="$2"
 
-  printf '──────────────────────────────────────────────\n'
+  printf '──────────────────────────────────────────────
+'
   info "Detected services:"
-  printf '──────────────────────────────────────────────\n'
+  printf '──────────────────────────────────────────────
+'
 
   local idx=1 line maxlen=0
 
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     ((${#line} > maxlen)) && maxlen=${#line}
-  done <<<"$(tr ' ' '\n' <<<"$all")"
+  done <<<"$(tr ' ' '
+' <<<"$all")"
 
   while IFS= read -r line; do
     [[ -z "$line" ]] && continue
-    local tag="[SKIP]"
-    echo " $up " | grep -qw "$line" && tag="[UP]"
-    printf "  %2d. %-*s  %s\n" "$idx" "$maxlen" "$line" "$tag"
-    idx=$((idx + 1))
-  done <<<"$(tr ' ' '\n' <<<"$all")"
 
-  printf '──────────────────────────────────────────────\n\n'
+    local runtime tag extra=""
+    runtime="$(get_service_runtime_tag "$line")"
+
+    extra=""
+
+    case "$runtime" in
+      HEALTHY) tag="[HEALTHY]" ;;
+      COMPLETED) tag="[COMPLETED]" ;;
+      UNHEALTHY) tag="[UNHEALTHY]" ;;
+      FAILED) tag="[FAILED]" ;;
+      NO_CONTAINERS) tag="[SKIP]" ;;
+      UP) tag="[UP]" ;;
+      *) tag="[UP]" ;;
+    esac
+
+    printf "  %2d. %-*s  %s%s
+" "$idx" "$maxlen" "$line" "$tag" "$extra"
+    idx=$((idx + 1))
+  done <<<"$(tr ' ' '
+' <<<"$all")"
+
+  printf '──────────────────────────────────────────────
+
+'
 }
+
 
 print_unhealthy_services_details() {
   ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} == 0)) && return 0
@@ -207,6 +318,14 @@ print_unhealthy_services_details() {
 
     echo "  - $svc (container $cid)"
     echo "    Health status: $status"
+
+    # If the container has no health status (e.g., one-shot), show its lifecycle state/exit code.
+    local state exit_code
+    state="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+    if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+      exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "unknown")"
+      echo "    Container state: $state (exit code: $exit_code)"
+    fi
 
     raw_json="$(docker inspect -f '{{json .State.Health.Log}}' "$cid" 2>/dev/null || echo '[]')"
 
@@ -373,11 +492,27 @@ execute() {
     echo "  Overall result:        FAILED (unhealthy services detected)"
   fi
 
-  printf '  Services checked:      %d\n' "$services_checked"
-  printf '  Healthy:               %d\n' "$healthy_count"
-  printf '  Unhealthy:             %d\n' "$unhealthy_count"
-  printf '  Without healthcheck:   %d\n' "$no_hc_count"
-  printf '  No containers:         %d\n' "$no_containers_count"
+  # Aggregate summary by factual runtime status across *all* services from compose config.
+  # This is aligned with the "Detected services" table.
+  local sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
+  local s runtime
+  while IFS= read -r s; do
+    [[ -z "$s" ]] && continue
+    runtime="$(get_service_runtime_tag "$s")"
+    case "$runtime" in
+      HEALTHY) ((++sum_healthy)) ;;
+      COMPLETED) ((++sum_completed)) ;;
+      UNHEALTHY|FAILED) ((++sum_unhealthy)) ;;
+      NO_CONTAINERS) ((++sum_no_containers)) ;;
+      UP|*) ((++sum_no_hc)) ;;
+    esac
+  done <<<"$all_services"
+
+  printf '  Healthy:               %d\n' "$sum_healthy"
+  printf '  Completed:             %d\n' "$sum_completed"
+  printf '  Unhealthy:             %d\n' "$sum_unhealthy"
+  printf '  Without healthcheck:   %d\n' "$sum_no_hc"
+  printf '  No containers:         %d\n' "$sum_no_containers"
   echo
 
   if ((health_failed != 0)); then

@@ -35,14 +35,13 @@ jobs:
           }
 
           assert '^  Overall result:[[:space:]]*OK \(all services healthy\)$'
-          assert '^  Services checked:[[:space:]]*1$'
           assert '^  Healthy:[[:space:]]*1$'
           assert '^  Unhealthy:[[:space:]]*0$'
           assert '^  Without healthcheck:[[:space:]]*0$'
-          assert '^  No containers:[[:space:]]*0$'
+          assert '^  No containers:[[:space:]]*1$'
           assert '^  Global timeout:[[:space:]]*60s \(per service\)$'
 
-          assert 'web[[:space:]]* \[UP\]'
+          assert 'web[[:space:]]* \[HEALTHY\]'
           assert 'slow-broken[[:space:]]* \[SKIP\]'
 
           echo "✅ Healthy workflow validated successfully."
