@@ -30,6 +30,18 @@ wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
 
+  local state_status exit_code
+  state_status="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+  if [[ "$state_status" == "exited" || "$state_status" == "dead" ]]; then
+    exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "1")"
+    if [[ "$exit_code" == "0" ]]; then
+      echo "exited_0"
+    else
+      echo "exited_${exit_code}"
+    fi
+    return 0
+  fi
+
   local has_health
   has_health="$(docker inspect -f '{{if .State.Health}}yes{{end}}' "$cid" 2>/dev/null || true)"
   if [[ "$has_health" != "yes" ]]; then
@@ -92,7 +104,7 @@ check_service_health() {
     cids=()
     while IFS= read -r cid; do
       [[ -n "$cid" ]] && cids+=("$cid")
-    done < <(docker ps --no-trunc -q \
+    done < <(docker ps --all --no-trunc -q \
       ${project_filter+"${project_filter[@]}"} \
       --filter "label=com.docker.compose.service=$service")
 
@@ -107,7 +119,7 @@ check_service_health() {
   done
 
   if ((svc_has_containers == 0)); then
-    warning "Service '$service' has no running containers; marking as 'No containers'."
+    warning "Service '$service' has no containers (running or stopped); marking as 'No containers'."
     ((no_containers_count++))
     ((services_checked++))
     return 1
@@ -122,6 +134,14 @@ check_service_health() {
     case "$result" in
       healthy)
         svc_healthy=1
+        ;;
+      exited_0)
+        svc_healthy=1
+        ;;
+      exited_*)
+        svc_unhealthy=1
+        failed=1
+        docker_health_add_unhealthy_target "$service" "$cid"
         ;;
       unhealthy)
         svc_unhealthy=1
@@ -207,6 +227,14 @@ print_unhealthy_services_details() {
 
     echo "  - $svc (container $cid)"
     echo "    Health status: $status"
+
+    # If the container has no health status (e.g., one-shot), show its lifecycle state/exit code.
+    local state exit_code
+    state="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+    if [[ "$state" == "exited" || "$state" == "dead" ]]; then
+      exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "unknown")"
+      echo "    Container state: $state (exit code: $exit_code)"
+    fi
 
     raw_json="$(docker inspect -f '{{json .State.Health.Log}}' "$cid" 2>/dev/null || echo '[]')"
 
