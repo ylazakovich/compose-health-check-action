@@ -493,17 +493,19 @@ execute() {
     echo "  Overall result:        FAILED (unhealthy services detected)"
   fi
 
+  # Aggregate summary by factual runtime status across *all* services from compose config.
+  # This is aligned with the "Detected services" table.
   local sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
   local s runtime
   while IFS= read -r s; do
     [[ -z "$s" ]] && continue
     runtime="$(get_service_runtime_tag "$s")"
     case "$runtime" in
-      HEALTHY) ((sum_healthy++)) ;;
-      COMPLETED) ((sum_completed++)) ;;
-      UNHEALTHY|FAILED) ((sum_unhealthy++)) ;;
-      NO_CONTAINERS) ((sum_no_containers++)) ;;
-      UP|*) ((sum_no_hc++)) ;;
+      HEALTHY) ((++sum_healthy)) ;;
+      COMPLETED) ((++sum_completed)) ;;
+      UNHEALTHY|FAILED) ((++sum_unhealthy)) ;;
+      NO_CONTAINERS) ((++sum_no_containers)) ;;
+      UP|*) ((++sum_no_hc)) ;;
     esac
   done <<<"$all_services"
 
