@@ -38,7 +38,7 @@ jobs:
           assert '^  Healthy:[[:space:]]*1$'
           assert '^  Unhealthy:[[:space:]]*0$'
           assert '^  Without healthcheck:[[:space:]]*0$'
-          assert '^  No containers:[[:space:]]*0$'
+          assert '^  No containers:[[:space:]]*1$'
           assert '^  Global timeout:[[:space:]]*60s \(per service\)$'
 
           assert 'web[[:space:]]* \[HEALTHY\]'

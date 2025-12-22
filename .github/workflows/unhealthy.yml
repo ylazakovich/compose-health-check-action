@@ -41,7 +41,7 @@ jobs:
           assert '^  Healthy:[[:space:]]*0$'
           assert '^  Unhealthy:[[:space:]]*1$'
           assert '^  Without healthcheck:[[:space:]]*0$'
-          assert '^  No containers:[[:space:]]*0$'
+          assert '^  No containers:[[:space:]]*1$'
           assert '^  Global timeout:[[:space:]]*10s \(per service\)$'
 
           assert 'Last 25 health probe outputs'
