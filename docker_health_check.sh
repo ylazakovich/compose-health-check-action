@@ -137,7 +137,7 @@ check_service_health() {
         svc_healthy=1
         ;;
       exited_0)
-        svc_healthy=1
+        svc_no_hc=1
         ;;
       exited_*)
         svc_unhealthy=1
@@ -278,12 +278,8 @@ print_detected_services_table() {
     local runtime tag extra=""
     runtime="$(get_service_runtime_tag "$line")"
 
-    # Keep the original "UP list" semantics as a hint, but don't let it hide runtime truth
-    if echo " $up " | grep -qw "$line"; then
-      extra=""
-    else
-      extra=" [SKIP]"
-    fi
+    # Show only factual runtime status in the table (no [SKIP] noise)
+    extra=""
 
     case "$runtime" in
       HEALTHY) tag="[HEALTHY]" ;;
@@ -305,7 +301,6 @@ print_detected_services_table() {
 
 '
 }
-
 
 print_unhealthy_services_details() {
   ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} == 0)) && return 0
