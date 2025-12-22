@@ -49,7 +49,7 @@ jobs:
           assert 'Last 25 container log lines'
           assert 'Starting slow service...'
 
-          assert 'slow-broken[[:space:]]* \[UP\]'
+          assert 'slow-broken[[:space:]]* \[UNHEALTHY\]'
           assert 'web[[:space:]]* \[SKIP\]'
 
           echo "✅ Unhealthy workflow validated successfully."
