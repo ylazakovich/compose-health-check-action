@@ -279,7 +279,6 @@ print_detected_services_table() {
     local runtime tag extra=""
     runtime="$(get_service_runtime_tag "$line")"
 
-    # Show only factual runtime status in the table (no [SKIP] noise)
     extra=""
 
     case "$runtime" in
@@ -287,7 +286,7 @@ print_detected_services_table() {
       COMPLETED) tag="[COMPLETED]" ;;
       UNHEALTHY) tag="[UNHEALTHY]" ;;
       FAILED) tag="[FAILED]" ;;
-      NO_CONTAINERS) tag="[NO CONTAINERS]" ;;
+      NO_CONTAINERS) tag="[SKIP]" ;;
       UP) tag="[UP]" ;;
       *) tag="[UP]" ;;
     esac

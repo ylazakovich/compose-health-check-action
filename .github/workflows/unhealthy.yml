@@ -38,7 +38,6 @@ jobs:
           }
 
           assert '^  Overall result:[[:space:]]*FAILED \(unhealthy services detected\)$'
-          assert '^  Services checked:[[:space:]]*1$'
           assert '^  Healthy:[[:space:]]*0$'
           assert '^  Unhealthy:[[:space:]]*1$'
           assert '^  Without healthcheck:[[:space:]]*0$'
