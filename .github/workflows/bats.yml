@@ -27,10 +27,15 @@ jobs:
           assert-path: ${{ github.workspace }}/tests/test_helper/bats-assert
           file-path: ${{ github.workspace }}/tests/test_helper/bats-file
 
-      - name: Run BATS (JUnit)
+      - name: Run BATS (pretty + JUnit report)
         shell: bash
         run: |
-          bats --formatter junit --print-output-on-failure tests/ > junit.xml
+          mkdir -p test-reports
+          bats -F pretty \
+            --print-output-on-failure \
+            --report-formatter junit \
+            -o test-reports \
+            tests/
 
       - name: Upload JUnit report
         uses: actions/upload-artifact@v4
