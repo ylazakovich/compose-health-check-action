@@ -5,7 +5,7 @@
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 ![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 
-![Test Status](https://github.com/ylazakovich/compose-health-check-action/actions/summary.yml/badge.svg)
+![Bats tests](https://img.shields.io/endpoint?url=https://ylazakovich.github.io/compose-health-check-action/tests.json)
 
 ---
 

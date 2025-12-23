@@ -25,3 +25,33 @@ jobs:
           artifact: junit-report
           path: "**/*.xml"
           reporter: java-junit
+
+      - name: Install xmllint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+
+      - name: Build tests badge endpoint (total)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TOTAL="$(xmllint --xpath 'string(sum(//testsuite/@tests))' junit-report/**/*.xml 2>/dev/null || true)"
+          [[ -n "${TOTAL}" ]] || TOTAL="0"
+
+          mkdir -p public
+          cat > public/tests.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "bats tests",
+            "message": "${TOTAL} total",
+            "color": "blue"
+          }
+          EOF
+
+      - name: Publish badge to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: public
+          keep_files: true
