@@ -25,7 +25,7 @@ load './helpers.bash'
   assert_output --partial "or set DOCKER_SERVICES_LIST environment variable"
 }
 
-@test "no-services: fails with guidance message when not defined service" {
+@test "no services: fails when no services are provided and DOCKER_SERVICES_LIST is not set" {
   export DOCKER_HEALTH_TIMEOUT="60"
   export DOCKER_HEALTH_REPORT_FORMAT="json"
 
