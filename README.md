@@ -177,7 +177,7 @@ act push \
 Or execute the checker directly:
 
 ```bash
-./docker_health_check.sh docker compose up -d web
+./action.sh docker compose up -d web
 ```
 
 ---
