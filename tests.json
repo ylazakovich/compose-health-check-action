@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "bats tests",
-  "message": "0 total",
-  "color": "blue"
+  "message": "4 passed",
+  "color": "brightgreen"
 }
