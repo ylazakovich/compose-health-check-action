@@ -14,4 +14,4 @@ jobs:
       - name: 🔬Check repository through Prettier
         uses: creyD/prettier_action@v4.6
         with:
-          prettier_options: --check **/*
+          prettier_options: --check .
