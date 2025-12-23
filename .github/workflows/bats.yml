@@ -1,0 +1,28 @@
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install test deps (jq, bats)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq bats
+
+      - name: Run BATS (JUnit)
+        run: |
+          bats --reporter junit tests/ > junit.xml
+
+      - name: Upload JUnit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report
+          path: junit.xml
