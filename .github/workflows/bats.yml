@@ -32,6 +32,12 @@ jobs:
           BATS_LOAD_PATH: "${{ github.workspace }}/.bats"
           TERM: xterm
         run: |
+          set -euo pipefail
+          echo "BATS_LIB_PATH=$BATS_LIB_PATH"
+          echo "BATS_LOAD_PATH=$BATS_LOAD_PATH"
+          ls -la .bats
+          ls -la .bats/bats-support/load.bash
+
           mkdir -p test-reports
           bats \
           --formatter tap \
