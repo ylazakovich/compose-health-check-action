@@ -38,22 +38,22 @@ validate exit codes
 pass or fail CI
 ```
 
-| Scenario                     | Result |
-|------------------------------|--------|
-| All services healthy         | ✅ Pass |
-| Unhealthy service detected   | ❌ Fail |
-| One-shot service failed      | ❌ Fail |
-| No healthcheck defined       | ⚠️ Skip |
-| Docker Compose error         | ❌ Fail |
+| Scenario                   | Result  |
+| -------------------------- | ------- |
+| All services healthy       | ✅ Pass |
+| Unhealthy service detected | ❌ Fail |
+| One-shot service failed    | ❌ Fail |
+| No healthcheck defined     | ⚠️ Skip |
+| Docker Compose error       | ❌ Fail |
 
 ---
 
 ## ⚙️ Configuration
 
-| Input           | Required | Description |
-|-----------------|----------|-------------|
-| `compose-files` | yes      | One or more docker-compose files |
-| `services`      | no       | Services to check (default: all) |
+| Input           | Required | Description                                  |
+| --------------- | -------- | -------------------------------------------- |
+| `compose-files` | yes      | One or more docker-compose files             |
+| `services`      | no       | Services to check (default: all)             |
 | `timeout`       | no       | Timeout per service in seconds (default: 60) |
 
 Example:
