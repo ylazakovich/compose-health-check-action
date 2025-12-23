@@ -28,26 +28,9 @@ jobs:
       - name: Run BATS (pretty + JUnit report)
         shell: bash
         env:
-          BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
+          BATS_LIB_PATH: "${{ steps.setup-bats.outputs.lib-path }}"
           TERM: xterm
         run: |
-          set -euo pipefail
-          
-          echo "BATS_LIB_PATH=$BATS_LIB_PATH"
-          echo "== list .bats =="
-          ls -la .bats || true
-          echo "== tree .bats (2 levels) =="
-          find .bats -maxdepth 3 -type f -name "load.bash" -o -type f -name "load" || true
-  
-          echo "== check each BATS_LIB_PATH entry =="
-          IFS=':' read -r -a paths <<< "$BATS_LIB_PATH"
-          for p in "${paths[@]}"; do
-          echo "--- $p ---"
-          ls -la "$p" || true
-          ls -la "$p/bats-support" || true
-          ls -la "$p/bats-support/load.bash" || true
-          done
-
           mkdir -p test-reports
           bats \
           --formatter tap \
