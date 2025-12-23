@@ -6,7 +6,6 @@ load './helpers.bash'
 
 @test "healthy: overall ok and web is healthy" {
   export DOCKER_HEALTH_TIMEOUT="60"
-  export DOCKER_SERVICES_LIST="web"
   export DOCKER_HEALTH_REPORT_FORMAT="json"
 
   run_healthcheck_action_sh docker compose -f docker/docker-compose.healthy.yml up -d --quiet-pull web
