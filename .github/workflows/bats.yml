@@ -29,6 +29,9 @@ jobs:
 
       - name: Run BATS (pretty + JUnit report)
         shell: bash
+        env:
+          BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
+          TERM: xterm
         run: |
           mkdir -p test-reports
           bats -F pretty \
