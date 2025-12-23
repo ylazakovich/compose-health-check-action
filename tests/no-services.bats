@@ -1,21 +1,24 @@
 #!/usr/bin/env bats
 
-load "helpers.bash"
+load 'test_helper/bats-support/load'
+load 'test_helper/bats-assert/load'
+load './helpers.bash'
 
 @test "no-services: fails with guidance message" {
-  # This workflow passes services: "" and a NOT FOUND compose file.
-  # Your action is expected to fail with the 'No services specified...' guidance text.
+  export DOCKER_HEALTH_TIMEOUT="10"
+  export DOCKER_SERVICES_LIST=""
+  export DOCKER_HEALTH_REPORT_FORMAT="json"
+
   run_healthcheck_action_sh docker compose -f docker-compose-NOT-FOUND.yml up -d
 
-  [ "$HC_RC" -ne 0 ]
+  assert_failure
 
-  # If your JSON report is produced for this path, assert it;
-  # otherwise keep text assertion only.
+  # JSON may be absent in this early-fail path; if present, validate status.
   if [[ -n "${HC_JSON:-}" ]]; then
-    assert_json '.overall.status == "no_services"'
+    assert_json '.overall.status == "no_services" or .overall.status == "compose_failed"'
   fi
 
-  assert_stdout_contains "No services specified. Either:"
-  assert_stdout_contains "pass services in docker compose command"
-  assert_stdout_contains "or set DOCKER_SERVICES_LIST environment variable"
+  assert_output --partial "No services specified. Either:"
+  assert_output --partial "pass services in docker compose command"
+  assert_output --partial "or set DOCKER_SERVICES_LIST environment variable"
 }

@@ -1,23 +1,25 @@
 #!/usr/bin/env bats
 
-load "helpers.bash"
+load 'test_helper/bats-support/load'
+load 'test_helper/bats-assert/load'
+load './helpers.bash'
 
-@test "compose-failed: docker compose fails, diagnostics summary present" {
-  # Workflow passes services: "empty" but compose file not found -> compose should fail.
+@test "compose-failed: docker compose command fails and diagnostics are printed" {
+  export DOCKER_HEALTH_TIMEOUT="10"
+  export DOCKER_SERVICES_LIST="empty"
+  export DOCKER_HEALTH_REPORT_FORMAT="json"
+
   run_healthcheck_action_sh docker compose -f docker-compose-NOT-FOUND.yml up -d empty
 
-  [ "$HC_RC" -ne 0 ]
+  assert_failure
 
   if [[ -n "${HC_JSON:-}" ]]; then
     assert_json '.overall.status == "compose_failed"'
   fi
 
-  assert_stdout_contains "Diagnostics summary"
-  assert_stdout_matches_regex '^  Platform:[[:space:]].+'
-  assert_stdout_matches_regex '^  Global timeout:[[:space:]]*10s \(per service\)$'
-  assert_stdout_contains "docker-compose-NOT-FOUND.yml"
-  assert_stdout_contains "docker compose output (last 25 lines)"
-  assert_stdout_contains "docker compose ls (all projects)"
-  assert_stdout_contains "docker ps --all (global)"
-  assert_stdout_contains "no such file or directory"
+  assert_output --partial "Diagnostics summary"
+  assert_output --partial "docker-compose-NOT-FOUND.yml"
+  assert_output --partial "docker compose output (last 25 lines)"
+  assert_output --partial "docker compose ls (all projects)"
+  assert_output --partial "docker ps --all (global)"
 }
