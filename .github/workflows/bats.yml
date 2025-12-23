@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: 'Setup jq'
+      - name: "Setup jq"
         uses: dcarbone/install-jq-action@v3
 
       - name: Setup Bats and bats libs
