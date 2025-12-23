@@ -19,4 +19,3 @@ load './helpers.bash'
   assert_json '.services.web == "healthy"'
   assert_json '.summary.unhealthy == 0'
 }
-
