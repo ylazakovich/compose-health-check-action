@@ -223,7 +223,7 @@ act push   --rm   -W .github/workflows/bats.yml   -P ubuntu-latest=ghcr.io/catth
 Or execute directly:
 
 ```bash
-./action.sh docker compose up -f docker/docker-compose.healthy.yml -d web
+./entrypoint.sh docker compose up -f docker/docker-compose.healthy.yml -d web
 ```
 
 ---

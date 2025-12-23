@@ -85,7 +85,7 @@ runs:
         export DOCKER_HEALTH_REPORT_FORMAT="$report_format_input"
 
         set +e
-        bash "${SCRIPT_DIR}/action.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
+        bash "${SCRIPT_DIR}/entrypoint.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
         rc=${PIPESTATUS[0]}
         set -e
 

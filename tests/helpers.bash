@@ -144,7 +144,7 @@ run_healthcheck_action_sh() {
     cmd=( "${rewritten[@]}" )
   fi
 
-  run bash "$repo_root/action.sh" "${cmd[@]}"
+  run bash "$repo_root/entrypoint.sh" "${cmd[@]}"
 
   HC_RC="$status"
   HC_STDOUT_RAW="$output"
