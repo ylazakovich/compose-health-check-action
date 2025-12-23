@@ -17,8 +17,15 @@ jobs:
         uses: dcarbone/install-jq-action@v3
 
       - name: Setup Bats and bats libs
-        id: setup-bats
         uses: bats-core/bats-action@3.0.1
+        with:
+          bats-install: true
+          support-install: true
+          assert-install: true
+          file-install: true
+          support-path: ${{ github.workspace }}/tests/test_helper/bats-support
+          assert-path: ${{ github.workspace }}/tests/test_helper/bats-assert
+          file-path: ${{ github.workspace }}/tests/test_helper/bats-file
 
       - name: Run BATS (JUnit)
         shell: bash
