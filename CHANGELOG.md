@@ -1,3 +1,5 @@
+## v1.1.1-SNAPSHOT
+
 ## v1.1.0 (23.12.2025)
 
 - Added JSON report generation mechanism with configurable output format (text, json, or both) [#23](https://github.com/ylazakovich/compose-health-check-action/pull/23)
