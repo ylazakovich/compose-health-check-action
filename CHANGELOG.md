@@ -1,3 +1,9 @@
+## v1.0.4 [\*](https://github.com/ylazakovich/compose-health-check-action/pull/24) (23.12.2025)
+
+- Implemented comprehensive test suite using BATS (Bash Automated Testing System)
+- Added test coverage for healthy, unhealthy, compose-failed, and no-services scenarios
+- Replaced individual workflow-based tests with unified BATS test runner and JUnit reporting
+
 ## v1.0.3 [\*](https://github.com/ylazakovich/compose-health-check-action/pull/23) (23.12.2025)
 
 - Added JSON report generation mechanism with configurable output format (text, json, or both)
