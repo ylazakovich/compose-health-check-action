@@ -9,10 +9,16 @@ services:
         python -m http.server 8081
       "
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081', timeout=1)"
+        ]
       interval: 1s
-      timeout: 1s
-      retries: 30
+      timeout: 2s
+      retries: 60
       start_period: 0s
 
   api:
@@ -26,10 +32,16 @@ services:
         python -m http.server 8082
       "
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8082', timeout=1)"
+        ]
       interval: 1s
-      timeout: 1s
-      retries: 30
+      timeout: 2s
+      retries: 60
       start_period: 0s
 
   web:
@@ -40,6 +52,6 @@ services:
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
       interval: 1s
-      timeout: 1s
-      retries: 30
+      timeout: 2s
+      retries: 60
       start_period: 0s
