@@ -1,0 +1,7 @@
+services:
+  api:
+    image: python:3.14-alpine
+    command: >
+      sh -c "
+        python -m http.server 8080
+      "
