@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load 'test_helper/bats-support/load'
-load 'test_helper/bats-assert/load'
+load '/usr/lib/bats-support/load'
+load '/usr/lib/bats-assert/load'
 load './helpers.bash'
 
 @test "no-services: fails with guidance message" {
