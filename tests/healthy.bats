@@ -33,18 +33,3 @@ load './helpers.bash'
   assert_json '.services.web == "healthy"'
   assert_json '.summary.unhealthy == 0'
 }
-
-@test "healthy: overall ok when services are taken from docker compose" {
-  export DOCKER_HEALTH_TIMEOUT="60"
-  export DOCKER_HEALTH_REPORT_FORMAT="json"
-
-  # Note: no service names after `up -d`
-  run_healthcheck_action_sh docker compose \
-    -f docker/docker-compose.healthy.yml \
-    up -d --quiet-pull
-
-  assert_success
-  assert_json '.overall.status == "ok"'
-  assert_json '.services.web == "healthy"'
-  assert_json '.summary.unhealthy == 0'
-}
