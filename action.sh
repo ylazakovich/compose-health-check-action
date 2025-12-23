@@ -12,6 +12,15 @@ DOCKER_HEALTH_REPORT_FORMAT="${DOCKER_HEALTH_REPORT_FORMAT:-text}"
 # If set and report format includes json, JSON report will be written to this file
 DOCKER_HEALTH_REPORT_JSON_FILE="${DOCKER_HEALTH_REPORT_JSON_FILE:-}"
 
+case "${DOCKER_HEALTH_REPORT_FORMAT}" in
+  text|json|both)
+    ;; # valid
+  *)
+    error "Invalid DOCKER_HEALTH_REPORT_FORMAT: '${DOCKER_HEALTH_REPORT_FORMAT}'. Must be one of 'text', 'json', or 'both'."
+    exit 1
+    ;;
+esac
+
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
   export DOCKER_DEFAULT_PLATFORM="${HOST_PLATFORM}"
