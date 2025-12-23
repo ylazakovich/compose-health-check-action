@@ -29,6 +29,7 @@ jobs:
         shell: bash
         env:
           BATS_LIB_PATH: "${{ steps.setup-bats.outputs.lib-path }}"
+          BATS_LOAD_PATH: "${{ github.workspace }}/.bats"
           TERM: xterm
         run: |
           mkdir -p test-reports
