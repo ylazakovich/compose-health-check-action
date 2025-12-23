@@ -36,7 +36,6 @@ load './helpers.bash'
 
 @test "healthy: overall ok when services are taken from docker compose" {
   export DOCKER_HEALTH_TIMEOUT="60"
-  export DOCKER_SERVICES_LIST="web"
   export DOCKER_HEALTH_REPORT_FORMAT="json"
 
   # Note: no service names after `up -d`
