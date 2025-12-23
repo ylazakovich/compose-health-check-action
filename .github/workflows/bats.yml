@@ -19,7 +19,7 @@ jobs:
 
       - name: Run BATS (JUnit)
         run: |
-          bats --reporter junit tests/ > junit.xml
+          bats --formatter junit tests/ > junit.xml
 
       - name: Upload JUnit report
         uses: actions/upload-artifact@v4
