@@ -18,6 +18,9 @@
 
 ```yaml
 - uses: ylazakovich/compose-health-check-action@v1
+  with:
+    compose-files: docker-compose.yml
+    services: service_1, service_2 ...
 ```
 
 That’s it.  
