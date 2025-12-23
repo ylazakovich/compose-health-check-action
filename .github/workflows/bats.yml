@@ -20,10 +20,10 @@ jobs:
         id: setup-bats
         uses: bats-core/bats-action@3.0.1
         with:
-          support-path: "${{ github.workspace }}/tests/bats-support"
-          assert-path: "${{ github.workspace }}/tests/bats-assert"
-          detik-path: "${{ github.workspace }}/tests/bats-detik"
-          file-path: "${{ github.workspace }}/tests/bats-file"
+          support-path: "${{ github.workspace }}/.bats/bats-support"
+          assert-path: "${{ github.workspace }}/.bats/bats-assert"
+          detik-path: "${{ github.workspace }}/.bats/bats-detik"
+          file-path: "${{ github.workspace }}/.bats/bats-file"
 
       - name: Run BATS (pretty + JUnit report)
         shell: bash
