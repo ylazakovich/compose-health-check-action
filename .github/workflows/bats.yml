@@ -7,8 +7,36 @@ on:
     branches: [main]
 
 jobs:
-  bats:
+  discover:
     runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - id: list
+        name: Collect .bats files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > bats_files.json
+          import json, glob
+          files = sorted(glob.glob("tests/**/*.bats", recursive=True))
+          if not files:
+            raise SystemExit("No .bats files found under tests/**")
+          print(json.dumps(files))
+          PY
+          echo "files=$(cat bats_files.json)" >> "$GITHUB_OUTPUT"
+
+  bats:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bats_file: ${{ fromJson(needs.discover.outputs.files) }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -25,23 +53,41 @@ jobs:
           detik-path: "${{ github.workspace }}/tests/bats-detik"
           file-path: "${{ github.workspace }}/tests/bats-file"
 
-      - name: Run BATS (pretty + JUnit report)
+      - name: Run BATS for single file (pretty + JUnit report)
         shell: bash
         env:
           BATS_LIB_PATH: "${{ steps.setup-bats.outputs.lib-path }}"
           TERM: xterm
         run: |
-          mkdir -p test-reports
+          set -euo pipefail
+
+          FILE="${{ matrix.bats_file }}"
+          SAFE_NAME="$(echo "$FILE" | tr '/.' '__')"
+
+          OUT_DIR="test-reports/${SAFE_NAME}"
+          mkdir -p "$OUT_DIR"
+
           bats \
-          --formatter tap \
-          --print-output-on-failure \
-          --report-formatter junit \
-          --output test-reports \
-          tests/
+            --formatter tap \
+            --print-output-on-failure \
+            --report-formatter junit \
+            --output "$OUT_DIR" \
+            "$FILE"
+
+      - id: meta
+        name: Compute safe artifact name
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="${{ matrix.bats_file }}"
+          SAFE="$(echo "$FILE" | tr '/.' '__')"
+          echo "safe_name=$SAFE" >> "$GITHUB_OUTPUT"
 
       - name: Upload JUnit report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: junit-report
+          name: junit-report-${{ steps.meta.outputs.safe_name }}
           path: test-reports/**/*.xml
+          if-no-files-found: error
+          retention-days: 7
