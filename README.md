@@ -3,6 +3,7 @@
 > Fail your CI early if Docker Compose services are not healthy.
 
 ✅ Runs Docker Compose  
+✅ Autodetection host platform  
 ✅ Waits for container healthchecks  
 ✅ Fails on unhealthy or broken services  
 ✅ Shows clear diagnostics on error
@@ -42,19 +43,20 @@ pass or fail CI
 | -------------------------- | ------- |
 | All services healthy       | ✅ Pass |
 | Unhealthy service detected | ❌ Fail |
-| One-shot service failed    | ❌ Fail |
-| No healthcheck defined     | ⚠️ Skip |
 | Docker Compose error       | ❌ Fail |
+| No healthcheck defined     | ⚠️ Skip |
 
 ---
 
 ## ⚙️ Configuration
 
-| Input           | Required | Description                                  |
-| --------------- | -------- | -------------------------------------------- |
-| `compose-files` | yes      | One or more docker-compose files             |
-| `services`      | no       | Services to check (default: all)             |
-| `timeout`       | no       | Timeout per service in seconds (default: 60) |
+| Input                     | Required | Description                                                           |
+| ------------------------- | -------- | --------------------------------------------------------------------- |
+| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`       |
+| `services`                | no       | Services to check (default: all)                                      |
+| `timeout`                 | no       | Timeout per service in seconds (default: 120)                         |
+| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`) |
+| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`      |
 
 Example:
 
@@ -76,11 +78,29 @@ Example:
 <summary>🟢 Healthy services</summary>
 
 ```text
-Service 'web' is healthy.
+ℹ️  Service 'web' is healthy.
 
-Overall result: OK
-Healthy: 1
-Unhealthy: 0
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/x86_64
+  Global timeout:        60s (per service)
+  Compose command:
+      docker compose -f docker-compose.yml up -d --quiet-pull web
+
+  Overall result:        OK (all services healthy)
+  Healthy:               1
+  Completed:             0
+  Unhealthy:             0
+  Without healthcheck:   0
+  No containers:         1
+
+──────────────────────────────────────────────
+ℹ️  Detected services:
+──────────────────────────────────────────────
+   1. slow-broken  [SKIP]
+   2. web          [HEALTHY]
+──────────────────────────────────────────────
 
 Application started successfully!
 ```
@@ -91,12 +111,46 @@ Application started successfully!
 <summary>🔴 Unhealthy service</summary>
 
 ```text
-Overall result: FAILED
-Unhealthy services:
-  - slow-broken (Health=unhealthy)
+Checking health status of services (running only)...
+❌ Service 'slow-broken' healthcheck failed!!!
 
-Last health logs:
-  Connection refused
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/x86_64
+  Global timeout:        10s (per service)
+  Compose command:
+      docker compose -f docker-compose.yml up -d slow-broken
+
+  Overall result:        FAILED (unhealthy services detected)
+  Healthy:               0
+  Completed:             0
+  Unhealthy:             1
+  Without healthcheck:   0
+  No containers:         1
+
+
+Unhealthy services:
+  - slow-broken (container aa1868534bad490b4695d1e5235a187bafd23ae07653db56c1d8bb8f69f6b072)
+    Health status: unhealthy
+    Last 25 health probe outputs:
+      wget: can't connect to remote host: Connection refused
+      wget: can't connect to remote host: Connection refused
+      wget: can't connect to remote host: Connection refused
+      wget: can't connect to remote host: Connection refused
+      wget: can't connect to remote host: Connection refused
+
+    Last 25 container log lines:
+      Starting slow service...
+
+──────────────────────────────────────────────
+ℹ️  Detected services:
+──────────────────────────────────────────────
+   1. slow-broken  [UNHEALTHY]
+   2. web          [SKIP]
+──────────────────────────────────────────────
+
+❌ Some services failed healthcheck.
 ```
 
 </details>
@@ -105,8 +159,10 @@ Last health logs:
 <summary>⚠️ No services specified</summary>
 
 ```text
-No services specified.
-Pass services explicitly or via DOCKER_SERVICES_LIST.
+❌ No services specified. Either:
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
+Error: Process completed with exit code 1.
 ```
 
 </details>
@@ -115,8 +171,33 @@ Pass services explicitly or via DOCKER_SERVICES_LIST.
 <summary>❌ Docker Compose failed</summary>
 
 ```text
-docker compose up failed:
-docker-compose-NOT-FOUND.yml: no such file
+❌ Docker compose failed to start (exit 1).
+
+🔍  Diagnostics summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/x86_64
+  Global timeout:        10s (per service)
+  Compose command:
+      docker compose -f docker-compose-NOT-FOUND.yml up -d empty
+
+ℹ️  --- docker compose output (last 25 lines) ---
+─────────────────────────────────────────────────────────────
+open /home/runner/work/compose-health-check-action/compose-health-check-action/docker-compose-NOT-FOUND.yml: no such file or directory
+
+ℹ️  --- docker compose ps --all ---
+─────────────────────────────────────────────────────────────
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
+
+ℹ️  --- docker compose ls (all projects) ---
+─────────────────────────────────────────────────────────────
+NAME                STATUS              CONFIG FILES
+
+ℹ️  --- docker ps --all (global) ---
+─────────────────────────────────────────────────────────────
+NAMES     STATUS    IMAGE
+
+─────────────────────────────────────────────────────────────
+❌ Some services failed to start (docker compose error).
 ```
 
 </details>
