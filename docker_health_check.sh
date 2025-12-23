@@ -7,6 +7,11 @@ source "$SCRIPT_DIR/lib/logging.sh"
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
 DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-25}"
 
+# Report format: text | json | both
+DOCKER_HEALTH_REPORT_FORMAT="${DOCKER_HEALTH_REPORT_FORMAT:-text}"
+# If set and report format includes json, JSON report will be written to this file
+DOCKER_HEALTH_REPORT_JSON_FILE="${DOCKER_HEALTH_REPORT_JSON_FILE:-}"
+
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
   export DOCKER_DEFAULT_PLATFORM="${HOST_PLATFORM}"
@@ -14,11 +19,100 @@ fi
 
 declare -a DOCKER_HEALTH_UNHEALTHY_TARGETS=()
 
+sum_healthy=0
+sum_completed=0
+sum_unhealthy=0
+sum_no_hc=0
+sum_no_containers=0
+
 services_checked=0
 healthy_count=0
 unhealthy_count=0
 no_hc_count=0
 no_containers_count=0
+
+# ---------------- JSON report helpers ----------------
+# Emits a machine-readable JSON report to DOCKER_HEALTH_REPORT_JSON_FILE (if set),
+# or to stdout if report format is "json".
+docker_health_emit_json_report() {
+  local overall_status="$1"   # ok | failed | compose_failed | no_services
+  local overall_reason="$2"   # free-form reason code
+  local all_services="${3:-}" # space-separated list (may be empty)
+
+  # Only act if json is requested
+  if [[ "${DOCKER_HEALTH_REPORT_FORMAT}" != "json" && "${DOCKER_HEALTH_REPORT_FORMAT}" != "both" ]]; then
+    return 0
+  fi
+
+  if ! command -v jq >/dev/null 2>&1; then
+    warning "jq is not available; skipping JSON report emission."
+    return 0
+  fi
+
+  # Build per-service status map using runtime detection (same source as Detected services table)
+  local services_json
+  services_json="$(
+    tr ' ' '\n' <<<"${all_services}" | awk 'NF' | while IFS= read -r svc; do
+      st="$(get_service_runtime_tag "$svc")"
+      case "$st" in
+        HEALTHY) echo -e "$svc\thealthy" ;;
+        COMPLETED) echo -e "$svc\tcompleted" ;;
+        UNHEALTHY) echo -e "$svc\tunhealthy" ;;
+        FAILED) echo -e "$svc\tfailed" ;;
+        NO_CONTAINERS) echo -e "$svc\tno_containers" ;;
+        UP|*) echo -e "$svc\tup" ;;
+      esac
+    done | sort | jq -Rn '
+      reduce inputs as $l ({};
+        ($l | split("\t")) as $p | . + { ($p[0]): ($p[1]) }
+      )'
+  )"
+
+  # Targets list
+  local targets_json="[]"
+  if [[ -n "${DOCKER_SERVICES_LIST:-}" ]]; then
+    targets_json="$(tr ' ' '\n' <<<"${DOCKER_SERVICES_LIST}" | jq -R . | jq -s .)"
+  fi
+
+  # Compose final object
+  local json
+  json="$(jq -n \
+    --arg status "${overall_status}" \
+    --arg reason "${overall_reason}" \
+    --argjson timeout "${DOCKER_HEALTH_TIMEOUT:-0}" \
+    --argjson healthy "${sum_healthy:-0}" \
+    --argjson unhealthy "${sum_unhealthy:-0}" \
+    --argjson completed "${sum_completed:-0}" \
+    --argjson without_hc "${sum_no_hc:-0}" \
+    --argjson no_containers "${sum_no_containers:-0}" \
+    --argjson targets "${targets_json}" \
+    --argjson services "${services_json}" \
+    '{
+      overall: { status: $status, reason: $reason },
+      config: { timeout_seconds: $timeout, services_target: $targets },
+      summary: {
+        healthy: $healthy,
+        unhealthy: $unhealthy,
+        completed: $completed,
+        without_healthcheck: $without_hc,
+        no_containers: $no_containers
+      },
+      services: $services
+    }'
+  )"
+
+  if [[ "${DOCKER_HEALTH_REPORT_FORMAT}" == "json" ]]; then
+    echo "${json}"
+  else
+    if [[ -n "${DOCKER_HEALTH_REPORT_JSON_FILE}" ]]; then
+      printf '%s' "${json}" > "${DOCKER_HEALTH_REPORT_JSON_FILE}"
+    else
+      # Fallback: print to stderr to avoid corrupting existing summary_b64 capture.
+      echo "${json}" >&2
+    fi
+  fi
+}
+# -----------------------------------------------------
 
 docker_health_add_unhealthy_target() {
   local service="$1"
@@ -394,7 +488,8 @@ execute() {
       error "No services specified. Either:
     - pass services in docker compose command, e.g. 'docker compose up -d web api'
     - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
-      exit 1
+      docker_health_emit_json_report "no_services" "no_services_specified" ""
+    exit 1
     fi
   fi
   read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
@@ -442,6 +537,7 @@ execute() {
     echo "─────────────────────────────────────────────────────────────"
 
     error "Some services failed to start (docker compose error)."
+    docker_health_emit_json_report "compose_failed" "docker_compose_failed" ""
     exit 1
   fi
 
@@ -494,7 +590,7 @@ execute() {
 
   # Aggregate summary by factual runtime status across *all* services from compose config.
   # This is aligned with the "Detected services" table.
-  local sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
+  sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
   local s runtime
   while IFS= read -r s; do
     [[ -z "$s" ]] && continue
@@ -522,9 +618,12 @@ execute() {
   print_detected_services_table "$all_services" "${DOCKER_SERVICES_LIST:-}"
 
   if ((health_failed != 0)); then
+  docker_health_emit_json_report "failed" "unhealthy_services_detected" "$all_services"
     error "Some services failed healthcheck."
     exit 1
   fi
+
+  docker_health_emit_json_report "ok" "all_target_services_healthy" "$all_services"
 
   echo "Application started successfully!"
 }
