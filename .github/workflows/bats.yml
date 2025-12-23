@@ -31,13 +31,21 @@ jobs:
           BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
           TERM: xterm
         run: |
+          set -euo pipefail
+          echo "BATS_LIB_PATH=$BATS_LIB_PATH"
+          echo "which bats: $(which bats)"
+          bats --version || true
+
+          echo "== check bats-support exists in BATS_LIB_PATH =="
+          find "$BATS_LIB_PATH" -maxdepth 4 -type f -name "load.bash" -o -name "load" || true
+
           mkdir -p test-reports
           bats \
-            --formatter tap \
-            --print-output-on-failure \
-            --report-formatter junit \
-            -o test-reports \
-            tests/
+          --formatter tap \
+          --print-output-on-failure \
+          --report-formatter junit \
+          --output test-reports \
+          tests/
 
       - name: Upload JUnit report
         uses: actions/upload-artifact@v6
