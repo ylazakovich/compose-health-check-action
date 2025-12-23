@@ -38,4 +38,4 @@ jobs:
         if: always()
         with:
           name: junit-report
-          path: test-reports
+          path: test-reports/**/*.xml

@@ -21,8 +21,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+          name: junit-report
+          path: junit-report
 
       - name: 🔬Report summary
+        id: report
         uses: dorny/test-reporter@7b7927aa7da8b82e81e755810cb51f39941a2cc7 # v2
         with:
           name: "🔬Bats JUnit report"
@@ -30,28 +33,42 @@ jobs:
           path: "**/*.xml"
           reporter: java-junit
 
-      - name: Install xmllint
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-
-      - name: Build tests badge endpoint (total)
-        shell: bash
+      - name: Build Shields endpoint JSON (passed/failed/skipped)
+        if: always()
         run: |
           set -euo pipefail
 
-          TOTAL="$(xmllint --xpath 'string(sum(//testsuite/@tests))' junit-report/**/*.xml 2>/dev/null || true)"
-          [[ -n "${TOTAL}" ]] || TOTAL="0"
+          passed="${{ steps.report.outputs.passed }}"
+          failed="${{ steps.report.outputs.failed }}"
+          skipped="${{ steps.report.outputs.skipped }}"
+
+          if [[ -z "$passed" ]]; then passed="0"; fi
+          if [[ -z "$failed" ]]; then failed="0"; fi
+          if [[ -z "$skipped" ]]; then skipped="0"; fi
+
+          if [[ "$failed" != "0" ]]; then
+            color="red"
+            message="${passed} passed, ${failed} failed"
+          elif [[ "$skipped" != "0" ]]; then
+            color="yellow"
+            message="${passed} passed, ${skipped} skipped"
+          else
+            color="brightgreen"
+            message="${passed} passed"
+          fi
 
           mkdir -p public
-          cat > public/tests.json <<EOF
+          cat > public/tests.json <<JSON
           {
             "schemaVersion": 1,
             "label": "bats tests",
-            "message": "${TOTAL} total",
-            "color": "blue"
+            "message": "${message}",
+            "color": "${color}"
           }
-          EOF
+          JSON
+
+          echo "Badge JSON:"
+          cat public/tests.json
 
       - name: Publish badge to gh-pages
         uses: peaceiris/actions-gh-pages@v4
