@@ -17,6 +17,7 @@ jobs:
         uses: dcarbone/install-jq-action@v3
 
       - name: Setup Bats and bats libs
+        id: setup-bats
         uses: bats-core/bats-action@3.0.1
 
       - name: Run BATS (JUnit)
