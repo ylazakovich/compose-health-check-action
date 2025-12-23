@@ -1,0 +1,45 @@
+services:
+  db:
+    image: python:3.14-alpine
+    command: >
+      sh -c "
+        echo 'DB starting...';
+        sleep 6;
+        echo 'DB serving...';
+        python -m http.server 8081
+      "
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+      start_period: 0s
+
+  api:
+    image: python:3.14-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'API starting (requires DB healthy)...';
+        python -m http.server 8082
+      "
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8082"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+      start_period: 0s
+
+  web:
+    image: nginx:1.29-alpine
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+      start_period: 0s
