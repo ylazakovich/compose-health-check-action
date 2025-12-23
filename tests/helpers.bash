@@ -83,6 +83,10 @@ _hc_make_project_name() {
 
 _hc_compose_down_last_project() {
   # Never fail teardown
+  local prev_extglob_state
+  prev_extglob_state="$(shopt -p extglob)"
+  shopt -s extglob
+  local previous_errexit_state="$-"
   set +e
 
   if [[ -n "${HC_COMPOSE_PROJECT:-}" ]]; then
@@ -93,7 +97,10 @@ _hc_compose_down_last_project() {
     rm -f "$HC_JSON_FILE" >/dev/null 2>&1
   fi
 
-  set -e
+  if [[ $previous_errexit_state == *e* ]]; then
+    set -e
+  fi
+  eval "$prev_extglob_state"
 }
 
 # Bats automatically calls teardown() after EACH test if it exists.
