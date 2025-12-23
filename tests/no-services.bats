@@ -9,7 +9,7 @@ load './helpers.bash'
   export DOCKER_SERVICES_LIST=""
   export DOCKER_HEALTH_REPORT_FORMAT="json"
 
-  run_healthcheck_action_sh docker compose -f docker-compose-NOT-FOUND.yml up -d
+  run_healthcheck_action_sh docker compose -f docker-compose.no-services.yml up -d
 
   assert_failure
 

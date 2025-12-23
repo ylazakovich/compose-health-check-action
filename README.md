@@ -19,7 +19,7 @@
 ```yaml
 - uses: ylazakovich/compose-health-check-action@v1
   with:
-    compose-files: docker-compose.yml
+    compose-files: docker/docker-compose.healthy.yml
 ```
 
 That’s it.  
