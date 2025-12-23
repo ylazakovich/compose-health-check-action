@@ -5,10 +5,7 @@
 [![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 ![Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 
-![Healthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/healthy.yml/badge.svg)
-![Unhealthy](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/unhealthy.yml/badge.svg)
-![No Services](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/no-services.yml/badge.svg)
-![Compose failed](https://github.com/ylazakovich/compose-health-check-action/actions/workflows/compose-failed.yml/badge.svg)
+![Test Status](https://github.com/ylazakovich/compose-health-check-action/actions/bats.yml/badge.svg)
 
 ---
 
