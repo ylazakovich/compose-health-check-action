@@ -12,10 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Install test deps (jq, bats)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq bats
+      - name: 'Setup jq'
+        uses: dcarbone/install-jq-action@v3
+
+      - name: Setup Bats and bats libs
+        id: setup-bats
+        uses: bats-core/bats-action@3.0.1
 
       - name: Run BATS (JUnit)
         run: |
