@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load '/usr/lib/bats-support/load'
-load '/usr/lib/bats-assert/load'
+load 'bats-support/load'
+load 'bats-support/loadload'
 load './helpers.bash'
 
 @test "unhealthy: slow-broken becomes unhealthy and action fails" {
