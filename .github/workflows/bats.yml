@@ -74,11 +74,20 @@ jobs:
             --output "$OUT_DIR" \
             "$FILE"
 
+      - id: meta
+        name: Compute safe artifact name
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="${{ matrix.bats_file }}"
+          SAFE="$(echo "$FILE" | tr '/.' '__')"
+          echo "safe_name=$SAFE" >> "$GITHUB_OUTPUT"
+
       - name: Upload JUnit report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: junit-report-${{ matrix.bats_file }}
+          name: junit-report-${{ steps.meta.outputs.safe_name }}
           path: test-reports/**/*.xml
           if-no-files-found: error
           retention-days: 7
