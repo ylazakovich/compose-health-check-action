@@ -24,11 +24,18 @@ inputs:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
     required: false
     default: ""
+  report-format:
+    description: "Healthcheck report format: text | json | both"
+    required: false
+    default: "text"
 
 outputs:
   summary_b64:
-    description: "Base64-encoded output of healthcheck"
+    description: "Base64-encoded human-readable output of healthcheck"
     value: ${{ steps.run_healthcheck.outputs.summary_b64 }}
+  report_json_b64:
+    description: "Base64-encoded machine-readable JSON healthcheck report (when enabled)"
+    value: ${{ steps.run_healthcheck.outputs.report_json_b64 }}
 
 runs:
   using: "composite"
@@ -39,6 +46,7 @@ runs:
       env:
         DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
         DOCKER_SERVICES_LIST: ${{ inputs.services }}
+        DOCKER_HEALTH_REPORT_FORMAT: ${{ inputs.report-format }}
       run: |
         set -euo pipefail
 
@@ -47,6 +55,7 @@ runs:
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
+        report_format_input="${{ inputs.report-format }}"
 
         CMD=(docker compose)
 
@@ -69,6 +78,11 @@ runs:
         fi
 
         TMP_OUT="$(mktemp)"
+        JSON_TMP="$(mktemp)"
+
+        # Tell the healthcheck script where to write JSON (if report-format is json/both).
+        export DOCKER_HEALTH_REPORT_JSON_FILE="$JSON_TMP"
+        export DOCKER_HEALTH_REPORT_FORMAT="$report_format_input"
 
         set +e
         bash "${SCRIPT_DIR}/action.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
@@ -77,5 +91,14 @@ runs:
 
         OUTPUT_B64="$(base64 <"$TMP_OUT" | tr -d '\n')"
         echo "summary_b64=$OUTPUT_B64" >>"$GITHUB_OUTPUT"
-        rm -f "$TMP_OUT"
+
+        # JSON output is optional; only publish if present and non-empty
+        if [[ -s "$JSON_TMP" ]]; then
+          JSON_B64="$(base64 <"$JSON_TMP" | tr -d '\n')"
+          echo "report_json_b64=$JSON_B64" >>"$GITHUB_OUTPUT"
+        else
+          echo "report_json_b64=" >>"$GITHUB_OUTPUT"
+        fi
+
+        rm -f "$TMP_OUT" "$JSON_TMP"
         exit "$rc"
