@@ -7,7 +7,6 @@
 ✅ Fails on unhealthy or broken services  
 ✅ Shows clear diagnostics on error
 
-[![Renovate enabled](https://img.shields.io/badge/Renovate-enabled-brightgreen.svg?logo=renovate&style=flat)](https://renovatebot.com/)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/ylazakovich/compose-health-check-action)
 ![Docker Compose](https://img.shields.io/badge/Docker-Compose-blue?logo=docker&logoColor=white)
 ![Bats tests](https://img.shields.io/endpoint?url=https://ylazakovich.github.io/compose-health-check-action/tests.json)
