@@ -27,7 +27,8 @@ jobs:
           TERM: xterm
         run: |
           mkdir -p test-reports
-          bats -F pretty \
+          bats \
+            --formatter tap \
             --print-output-on-failure \
             --report-formatter junit \
             -o test-reports \
