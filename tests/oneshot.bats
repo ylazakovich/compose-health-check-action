@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 load 'bats-support/load'
-load 'bats-support/loadload'
+load 'bats-support/load'
 load './helpers.bash'
 
 @test "one-shot: exit 0 is treated as success (service is completed)" {

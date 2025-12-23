@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 load 'bats-support/load'
-load 'bats-support/loadload'
+load 'bats-support/load'
 load './helpers.bash'
 
 @test "multi-file compose: override adds healthcheck and service becomes healthy" {
