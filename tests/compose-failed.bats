@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 load 'bats-support/load'
-load 'bats-support/load'
+load 'bats-assert/load'
 load './helpers.bash'
 
 @test "compose_failed: docker compose command fails and diagnostics are printed" {
@@ -18,7 +18,7 @@ load './helpers.bash'
   fi
 
   assert_output --partial "Diagnostics summary"
-  assert_output --partial "docker-compose.compose_failed.yml"
+  assert_output --partial "docker-compose.failed.yml"
   assert_output --partial "docker compose output (last 25 lines)"
   assert_output --partial "docker compose ls (all projects)"
   assert_output --partial "docker ps --all (global)"
