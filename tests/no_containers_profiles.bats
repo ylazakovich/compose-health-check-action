@@ -4,22 +4,25 @@ load '/usr/lib/bats-support/load'
 load '/usr/lib/bats-assert/load'
 load './helpers.bash'
 
-@test "no_containers: profiled service is not started and reported as no_containers" {
-  export DOCKER_HEALTH_TIMEOUT="60"
+@test "no_containers: profiled target service is not started and reported as no_containers (action fails)" {
+  export DOCKER_HEALTH_TIMEOUT="20"
   export DOCKER_HEALTH_REPORT_FORMAT="json"
 
-  # Target only the service that should actually run
-  export DOCKER_SERVICES_LIST="main"
+  # Target the profiled service, but do NOT enable the profile.
+  export DOCKER_SERVICES_LIST="optional"
 
-  run_healthcheck_action_sh docker compose -f docker/docker-compose.profiles.yml up -d --quiet-pull main
+  run_healthcheck_action_sh docker compose -f docker/docker-compose.profiles.yml up -d --quiet-pull optional
 
-  assert_success
-  assert_json '.overall.status == "ok"'
-  assert_json '.config.services_target == ["main"]'
-  assert_json '.services.main == "healthy"'
-  assert_json '.summary.unhealthy == 0'
+  # The target service has no container -> must be treated as failure for the target
+  assert_failure
 
-  # The profiled service exists in config but container is not created (profile not enabled)
-  # Depending on detection, it might appear in services map as no_containers.
-  assert_json '(.services.optional == "no_containers") or (.summary.no_containers >= 1)'
+  # Depending on implementation, overall status may be "failed" (healthcheck failure)
+  # or "compose_failed" if compose refuses to start it. Accept both but require no_containers evidence.
+  assert_json '(.overall.status == "failed") or (.overall.status == "compose_failed")'
+
+  # If compose did run and action produced a report, we should see no_containers in summary and services.
+  # (If compose failed hard before containers exist, services map might be empty; in that case compose_failed is enough.)
+  if jq -e '.services' <<<"$HC_JSON" >/dev/null 2>&1; then
+    assert_json '(.summary.no_containers >= 1) or (.services.optional == "no_containers")'
+  fi
 }
