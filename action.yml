@@ -71,7 +71,7 @@ runs:
         TMP_OUT="$(mktemp)"
 
         set +e
-        bash "${SCRIPT_DIR}/docker_health_check.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
+        bash "${SCRIPT_DIR}/action.sh" "${CMD[@]}" 2>&1 | tee "$TMP_OUT"
         rc=${PIPESTATUS[0]}
         set -e
 
