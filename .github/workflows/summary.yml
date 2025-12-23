@@ -24,21 +24,21 @@ jobs:
       - name: 🔨Checkout
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
 
-      - name: 📦Download artifacts
+      - name: 📦Download artifacts (all junit-report-*)
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          name: junit-report
           path: junit-report
+          pattern: junit-report-*
+          merge-multiple: true
 
       - name: 🔬Report summary
         id: report
         uses: dorny/test-reporter@fe45e9537387dac839af0d33ba56eed8e24189e8 # v2
         with:
           name: "🔬Bats JUnit report"
-          artifact: junit-report
-          path: "**/*.xml"
+          path: "junit-report/**/*.xml"
           reporter: java-junit
 
   badge:
