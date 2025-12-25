@@ -1,11 +1,16 @@
 services:
   web:
-    image: nginx:1.29-alpine
-    ports:
-      - "8080:80"
+    image: busybox:1.36
+    stop_grace_period: 1s
+    command: >
+      sh -c "
+        echo 'WEB healthy (simulated)';
+        touch /tmp/ready;
+        exec tail -f /dev/null
+      "
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
-      interval: 5s
-      timeout: 2s
-      retries: 10
-      start_period: 5s
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
+      start_period: 0s

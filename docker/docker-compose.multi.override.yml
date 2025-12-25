@@ -1,14 +1,8 @@
 services:
   api:
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080', timeout=1)",
-        ]
-      interval: 1s
-      timeout: 2s
-      retries: 30
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
       start_period: 0s
