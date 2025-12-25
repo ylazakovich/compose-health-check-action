@@ -9,12 +9,12 @@ branding:
 inputs:
   compose-files:
     description: "List of docker-compose files (one per line)"
-    required: false
+    required: true
     default: |
       docker-compose.yml
   services:
     description: "List of services to start (space-separated)."
-    required: false
+    required: true
     default: ""
   timeout:
     description: "Healthcheck timeout per service in seconds"

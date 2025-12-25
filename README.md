@@ -55,8 +55,8 @@ pass or fail CI
 
 | Input                     | Required | Description                                                           |
 | ------------------------- | -------- | --------------------------------------------------------------------- |
-| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`)      |
-| `services`                | no       | Services to check (default: all)                                      |
+| `compose-files`           | yes      | One or more docker-compose files (default: `docker-compose.yml`)      |
+| `services`                | yes      | Services to check                                                     |
 | `timeout`                 | no       | Timeout per service in seconds (default: 120)                         |
 | `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`) |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)     |
