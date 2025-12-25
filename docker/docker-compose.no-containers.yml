@@ -1,13 +1,21 @@
 services:
   main:
-    image: nginx:1.29-alpine
+    image: busybox:1.36
+    stop_grace_period: 1s
+    command: >
+      sh -c "
+        echo 'main started';
+        touch /tmp/ready;
+        exec tail -f /dev/null
+      "
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
-      interval: 1s
-      timeout: 2s
-      retries: 30
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
       start_period: 0s
 
   ghost:
-    image: alpine:3.23
-    command: ["sh", "-c", "sleep 300"]
+    image: busybox:1.36
+    stop_grace_period: 1s
+    command: ["sh", "-c", "exec tail -f /dev/null"]
