@@ -22,7 +22,7 @@
     compose-files: |
       docker-compose.yml
     services: |
-      service-1 
+      service-1
 ```
 
 That’s it.  
