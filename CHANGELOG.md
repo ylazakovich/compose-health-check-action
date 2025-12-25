@@ -1,4 +1,9 @@
-## v1.1.1-SNAPSHOT
+## vx.x.x - SNAPSHOT
+
+## v1.1.1 (25.12.2025)
+- Added bats tests
+- Speed up test infra
+- Update docs
 
 ## v1.1.0 (23.12.2025)
 
