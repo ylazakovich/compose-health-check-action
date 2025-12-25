@@ -2,9 +2,11 @@
 
 ## v1.1.1 (25.12.2025)
 
-- Added bats tests
-- Speed up test infra
-- Update docs
+- Added bats tests [#33](https://github.com/ylazakovich/compose-health-check-action/pull/33)
+- Improved test infra
+  - enable parallel run (1 test.bats per 1 runner) [#37](https://github.com/ylazakovich/compose-health-check-action/pull/37)
+  - speed up docker compose [#43](https://github.com/ylazakovich/compose-health-check-action/pull/43)
+- Update docs [#45](https://github.com/ylazakovich/compose-health-check-action/pull/45)
 
 ## v1.1.0 (23.12.2025)
 
