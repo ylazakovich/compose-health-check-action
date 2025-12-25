@@ -1,57 +1,60 @@
 services:
   db:
     image: busybox:1.36
+    pull_policy: never
     command: >
       sh -c "
         echo 'DB starting...';
-        sleep 6;
+        sleep 0.5;
         echo 'DB healthy (simulated)';
         touch /tmp/ready;
-        tail -f /dev/null
+        exec tail -f /dev/null
       "
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/ready"]
-      interval: 1s
-      timeout: 1s
-      retries: 60
+      interval: 200ms
+      timeout: 200ms
+      retries: 50
       start_period: 0s
 
   api:
     image: busybox:1.36
+    pull_policy: never
     depends_on:
       db:
         condition: service_healthy
     command: >
       sh -c "
         echo 'API starting (requires DB healthy)...';
-        sleep 1;
+        sleep 0.2;
         echo 'API healthy (simulated)';
         touch /tmp/ready;
-        tail -f /dev/null
+        exec tail -f /dev/null
       "
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/ready"]
-      interval: 1s
-      timeout: 1s
-      retries: 60
+      interval: 200ms
+      timeout: 200ms
+      retries: 50
       start_period: 0s
 
   web:
     image: busybox:1.36
+    pull_policy: never
     depends_on:
       api:
         condition: service_healthy
     command: >
       sh -c "
         echo 'WEB starting (requires API healthy)...';
-        sleep 1;
+        sleep 0.2;
         echo 'WEB healthy (simulated)';
         touch /tmp/ready;
-        tail -f /dev/null
+        exec tail -f /dev/null
       "
     healthcheck:
       test: ["CMD-SHELL", "test -f /tmp/ready"]
-      interval: 1s
-      timeout: 1s
-      retries: 60
+      interval: 200ms
+      timeout: 200ms
+      retries: 50
       start_period: 0s
