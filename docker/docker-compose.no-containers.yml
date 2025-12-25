@@ -4,9 +4,16 @@ services:
     stop_grace_period: 1s
     command: >
       sh -c "
-        echo 'main started (no healthcheck)';
+        echo 'main started';
+        touch /tmp/ready;
         exec tail -f /dev/null
       "
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
+      start_period: 0s
 
   ghost:
     image: busybox:1.36
