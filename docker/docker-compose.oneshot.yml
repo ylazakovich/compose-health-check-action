@@ -1,10 +1,10 @@
 services:
   oneshot-ok:
-    image: busybox:1.36
+    image: busybox:1.37
     command: ["sh", "-c", "echo 'one-shot ok'; exit 0"]
     restart: "no"
 
   oneshot-fail:
-    image: busybox:1.36
+    image: busybox:1.37
     command: ["sh", "-c", "echo 'one-shot fail' >&2; exit 42"]
     restart: "no"

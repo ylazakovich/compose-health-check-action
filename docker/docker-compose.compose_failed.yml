@@ -1,5 +1,5 @@
 services:
   not-empty:
-    image: busybox:1.36
+    image: busybox:1.37
     stop_grace_period: 1s
     command: ["sh", "-c", "exec sleep 60"]

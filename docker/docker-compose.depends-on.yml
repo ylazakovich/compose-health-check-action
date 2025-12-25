@@ -1,6 +1,6 @@
 services:
   db:
-    image: busybox:1.36
+    image: busybox:1.37
     stop_grace_period: 1s
     command: >
       sh -c "
@@ -17,7 +17,7 @@ services:
       start_period: 0s
 
   api:
-    image: busybox:1.36
+    image: busybox:1.37
     stop_grace_period: 1s
     depends_on:
       db:
@@ -37,7 +37,7 @@ services:
       start_period: 0s
 
   web:
-    image: busybox:1.36
+    image: busybox:1.37
     stop_grace_period: 1s
     depends_on:
       api:
