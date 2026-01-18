@@ -18,6 +18,27 @@ load '../helpers.bash'
   assert_json '.summary.unhealthy == 0'
 }
 
+@test "healthy: supports quoted compose file path" {
+  export DOCKER_HEALTH_TIMEOUT="60"
+  export DOCKER_HEALTH_REPORT_FORMAT="json"
+
+  local repo_root tmp_dir compose_path
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  tmp_dir="${BATS_TEST_TMPDIR}/project dir"
+  mkdir -p "$tmp_dir"
+  compose_path="${tmp_dir}/compose file.yml"
+  cp "$repo_root/docker/docker-compose.healthy.yml" "$compose_path"
+
+  run_healthcheck_action_sh docker compose \
+    -f "$compose_path" \
+    up -d --quiet-pull web
+
+  assert_success
+  assert_json '.overall.status == "ok"'
+  assert_json '.services.web == "healthy"'
+  assert_json '.summary.unhealthy == 0'
+}
+
 @test "healthy: overall ok when services are taken from DOCKER_SERVICES_LIST" {
   export DOCKER_HEALTH_TIMEOUT="60"
   export DOCKER_SERVICES_LIST="web"

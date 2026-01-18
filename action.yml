@@ -66,8 +66,23 @@ runs:
           unset DOCKER_SERVICES_LIST
         fi
 
+        parse_docker_command() {
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "python3 is required to parse docker-command safely." >&2
+            exit 1
+          fi
+          python3 - <<'PY' "$docker_command_input"
+import shlex
+import sys
+
+cmd = sys.argv[1]
+parts = shlex.split(cmd)
+sys.stdout.write("\0".join(parts) + "\0")
+PY
+        }
+
         if [[ -n "$docker_command_input" ]]; then
-          eval "CMD=($docker_command_input)"
+          mapfile -d '' -t CMD < <(parse_docker_command)
           if ((${#CMD[@]} < 2)) || [[ "${CMD[0]}" != "docker" || "${CMD[1]}" != "compose" ]]; then
             echo "docker-command must start with 'docker compose'." >&2
             exit 1
@@ -81,17 +96,17 @@ runs:
             fi
           done <<<"$compose_files_input"
 
-          CMD+=(up -d)
+        CMD+=(up -d)
 
-          if [[ -n "$additional_args_input" ]]; then
-            extra_args=( $additional_args_input )
-            CMD+=("${extra_args[@]}")
-          fi
+        if [[ -n "$additional_args_input" ]]; then
+          read -r -a extra_args <<<"$additional_args_input"
+          CMD+=("${extra_args[@]}")
+        fi
 
-          if [[ -n "$services_input" ]]; then
-            svc_arr=( $services_input )
-            CMD+=("${svc_arr[@]}")
-          fi
+        if [[ -n "$services_input" ]]; then
+          read -r -a svc_arr <<<"$services_input"
+          CMD+=("${svc_arr[@]}")
+        fi
         fi
 
         TMP_OUT="$(mktemp)"

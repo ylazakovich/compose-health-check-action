@@ -176,9 +176,24 @@ run_healthcheck_action_inputs() {
 
   local -a cmd=()
 
+  parse_docker_command() {
+    if ! command -v python3 >/dev/null 2>&1; then
+      echo "python3 is required to parse docker-command safely." >&2
+      return 1
+    fi
+    python3 - <<'PY' "$docker_command_input"
+import shlex
+import sys
+
+cmd = sys.argv[1]
+parts = shlex.split(cmd)
+sys.stdout.write("\0".join(parts) + "\0")
+PY
+  }
+
   if [[ -n "$docker_command_input" ]]; then
     unset DOCKER_SERVICES_LIST
-    eval "cmd=($docker_command_input)"
+    mapfile -d '' -t cmd < <(parse_docker_command)
     if ((${#cmd[@]} < 2)) || [[ "${cmd[0]}" != "docker" || "${cmd[1]}" != "compose" ]]; then
       echo "docker-command must start with 'docker compose'." >&2
       return 1
@@ -197,13 +212,13 @@ run_healthcheck_action_inputs() {
 
     if [[ -n "$additional_args_input" ]]; then
       local -a extra_args
-      extra_args=( $additional_args_input )
+      read -r -a extra_args <<<"$additional_args_input"
       cmd+=("${extra_args[@]}")
     fi
 
     if [[ -n "$services_input" ]]; then
       local -a svc_arr
-      svc_arr=( $services_input )
+      read -r -a svc_arr <<<"$services_input"
       cmd+=("${svc_arr[@]}")
     fi
   fi
