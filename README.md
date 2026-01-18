@@ -53,14 +53,14 @@ pass or fail CI
 
 ## ⚙️ Configuration
 
-| Input                     | Required | Description                                                                                            |
-| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
-| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty)  |
-| `services`                | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set) |
-| `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                          |
-| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                  |
-| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                      |
-| `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                        |
+| Input                     | Required | Description                                                                                           |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
+| `services`                | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set)       |
+| `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                         |
+| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
+| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
+| `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                       |
 
 Example:
 
