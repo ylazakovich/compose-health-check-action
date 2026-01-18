@@ -13,8 +13,8 @@ inputs:
     default: |
       docker-compose.yml
   services:
-    description: "List of services to start (space-separated)."
-    required: true
+    description: "List of services to check (space-separated). Defaults to all services when omitted; ignored when docker-command is set."
+    required: false
     default: ""
   timeout:
     description: "Healthcheck timeout per service in seconds"
@@ -22,6 +22,10 @@ inputs:
     default: "120"
   additional-compose-args:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
+    required: false
+    default: ""
+  docker-command:
+    description: "Full docker compose command to execute instead of compose-files/services (e.g. docker compose -f docker-compose.yml up -d web)"
     required: false
     default: ""
   report-format:
@@ -56,25 +60,53 @@ runs:
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
         report_format_input="${{ inputs.report-format }}"
+        docker_command_input="${{ inputs.docker-command }}"
 
-        CMD=(docker compose)
+        if [[ -n "$docker_command_input" ]]; then
+          unset DOCKER_SERVICES_LIST
+        fi
 
-        while IFS= read -r file; do
-          if [[ -n "$file" ]]; then
-            CMD+=(-f "$file")
+        parse_docker_command() {
+          if ! command -v python3 >/dev/null 2>&1; then
+            echo "python3 is required to parse docker-command safely." >&2
+            exit 1
           fi
-        done <<<"$compose_files_input"
+          python3 - <<'PY' "$docker_command_input"
+        import shlex
+        import sys
+
+        cmd = sys.argv[1]
+        parts = shlex.split(cmd)
+        sys.stdout.write("\0".join(parts) + "\0")
+        PY
+        }
+
+        if [[ -n "$docker_command_input" ]]; then
+          mapfile -d '' -t CMD < <(parse_docker_command)
+          if ((${#CMD[@]} < 2)) || [[ "${CMD[0]}" != "docker" || "${CMD[1]}" != "compose" ]]; then
+            echo "docker-command must start with 'docker compose'." >&2
+            exit 1
+          fi
+        else
+          CMD=(docker compose)
+
+          while IFS= read -r file; do
+            if [[ -n "$file" ]]; then
+              CMD+=(-f "$file")
+            fi
+          done <<<"$compose_files_input"
 
         CMD+=(up -d)
 
         if [[ -n "$additional_args_input" ]]; then
-          extra_args=( $additional_args_input )
+          read -r -a extra_args <<<"$additional_args_input"
           CMD+=("${extra_args[@]}")
         fi
 
         if [[ -n "$services_input" ]]; then
-          svc_arr=( $services_input )
+          read -r -a svc_arr <<<"$services_input"
           CMD+=("${svc_arr[@]}")
+        fi
         fi
 
         TMP_OUT="$(mktemp)"

@@ -13,8 +13,7 @@ DOCKER_HEALTH_REPORT_FORMAT="${DOCKER_HEALTH_REPORT_FORMAT:-text}"
 DOCKER_HEALTH_REPORT_JSON_FILE="${DOCKER_HEALTH_REPORT_JSON_FILE:-}"
 
 case "${DOCKER_HEALTH_REPORT_FORMAT}" in
-  text|json|both)
-    ;; # valid
+  text | json | both) ;; # valid
   *)
     error "Invalid DOCKER_HEALTH_REPORT_FORMAT: '${DOCKER_HEALTH_REPORT_FORMAT}'. Must be one of 'text', 'json', or 'both'."
     exit 1
@@ -69,7 +68,7 @@ docker_health_emit_json_report() {
         UNHEALTHY) echo -e "$svc\tunhealthy" ;;
         FAILED) echo -e "$svc\tfailed" ;;
         NO_CONTAINERS) echo -e "$svc\tno_containers" ;;
-        UP|*) echo -e "$svc\tup" ;;
+        UP | *) echo -e "$svc\tup" ;;
       esac
     done | sort | jq -Rn '
       reduce inputs as $l ({};
@@ -85,18 +84,19 @@ docker_health_emit_json_report() {
 
   # Compose final object
   local json
-  json="$(jq -n \
-    --arg status "${overall_status}" \
-    --arg reason "${overall_reason}" \
-    --argjson timeout "${DOCKER_HEALTH_TIMEOUT:-0}" \
-    --argjson healthy "${sum_healthy:-0}" \
-    --argjson unhealthy "${sum_unhealthy:-0}" \
-    --argjson completed "${sum_completed:-0}" \
-    --argjson without_hc "${sum_no_hc:-0}" \
-    --argjson no_containers "${sum_no_containers:-0}" \
-    --argjson targets "${targets_json}" \
-    --argjson services "${services_json}" \
-    '{
+  json="$(
+    jq -n \
+      --arg status "${overall_status}" \
+      --arg reason "${overall_reason}" \
+      --argjson timeout "${DOCKER_HEALTH_TIMEOUT:-0}" \
+      --argjson healthy "${sum_healthy:-0}" \
+      --argjson unhealthy "${sum_unhealthy:-0}" \
+      --argjson completed "${sum_completed:-0}" \
+      --argjson without_hc "${sum_no_hc:-0}" \
+      --argjson no_containers "${sum_no_containers:-0}" \
+      --argjson targets "${targets_json}" \
+      --argjson services "${services_json}" \
+      '{
       overall: { status: $status, reason: $reason },
       config: { timeout_seconds: $timeout, services_target: $targets },
       summary: {
@@ -114,7 +114,7 @@ docker_health_emit_json_report() {
     echo "${json}"
   else
     if [[ -n "${DOCKER_HEALTH_REPORT_JSON_FILE}" ]]; then
-      printf '%s' "${json}" > "${DOCKER_HEALTH_REPORT_JSON_FILE}"
+      printf '%s' "${json}" >"${DOCKER_HEALTH_REPORT_JSON_FILE}"
     else
       # Fallback: print to stderr to avoid corrupting existing summary_b64 capture.
       echo "${json}" >&2
@@ -303,8 +303,8 @@ get_service_runtime_tag() {
   while IFS= read -r cid; do
     [[ -n "$cid" ]] && cids+=("$cid")
   done < <(docker ps --all --no-trunc -q \
-      ${project_filter+"${project_filter[@]}"} \
-      --filter "label=com.docker.compose.service=$service")
+    ${project_filter+"${project_filter[@]}"} \
+    --filter "label=com.docker.compose.service=$service")
 
   if ((${#cids[@]} == 0)); then
     echo "NO_CONTAINERS"
@@ -405,7 +405,6 @@ print_detected_services_table() {
 '
 }
 
-
 print_unhealthy_services_details() {
   ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} == 0)) && return 0
 
@@ -434,28 +433,28 @@ print_unhealthy_services_details() {
 
     echo "    Last ${DOCKER_HEALTH_LOG_LINES} health probe outputs:"
     if command -v jq >/dev/null 2>&1; then
-      echo "$raw_json" \
-        | jq -r '.[-'"$DOCKER_HEALTH_LOG_LINES"':] | .[].Output' \
-        | while IFS= read -r line; do
-            [[ -z "$line" ]] && continue
-            printf '      %s\n' "$line"
-          done
+      echo "$raw_json" |
+        jq -r '.[-'"$DOCKER_HEALTH_LOG_LINES"':] | .[].Output' |
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          printf '      %s\n' "$line"
+        done
     else
-      echo "$raw_json" \
-        | sed -n 's/.*"Output":[[:space:]]*"\(.*\)".*/\1/p' \
-        | tail -n "$DOCKER_HEALTH_LOG_LINES" \
-        | while IFS= read -r line; do
-            [[ -z "$line" ]] && continue
-            printf '      %s\n' "$line"
-          done
+      echo "$raw_json" |
+        sed -n 's/.*"Output":[[:space:]]*"\(.*\)".*/\1/p' |
+        tail -n "$DOCKER_HEALTH_LOG_LINES" |
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+          printf '      %s\n' "$line"
+        done
     fi
 
     echo
     echo "    Last ${DOCKER_HEALTH_LOG_LINES} container log lines:"
-    docker logs --tail "$DOCKER_HEALTH_LOG_LINES" "$cid" 2>&1 \
-      | while IFS= read -r line; do
-          printf '      %s\n' "$line"
-        done
+    docker logs --tail "$DOCKER_HEALTH_LOG_LINES" "$cid" 2>&1 |
+      while IFS= read -r line; do
+        printf '      %s\n' "$line"
+      done
     echo
   done
 }
@@ -492,16 +491,7 @@ execute() {
 
   if ((${#services_from_cmd[@]} > 0)); then
     DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
-  else
-    if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
-      error "No services specified. Either:
-    - pass services in docker compose command, e.g. 'docker compose up -d web api'
-    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
-      docker_health_emit_json_report "no_services" "no_services_specified" ""
-    exit 1
-    fi
   fi
-  read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
 
   local compose_rc=0 tmp_out
   tmp_out="$(mktemp)"
@@ -567,6 +557,20 @@ execute() {
   local all_services
   all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"
 
+  if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
+    if [[ -z "$all_services" ]]; then
+      error "No services specified. Either:
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
+    - or define services in the compose file (none were found)."
+      docker_health_emit_json_report "no_services" "no_services_specified" ""
+      exit 1
+    fi
+    DOCKER_SERVICES_LIST="$(tr '\n' ' ' <<<"$all_services")"
+  fi
+
+  read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
+
   echo "Checking health status of services (running only)..."
   local svc
   local health_failed=0
@@ -607,9 +611,9 @@ execute() {
     case "$runtime" in
       HEALTHY) ((++sum_healthy)) ;;
       COMPLETED) ((++sum_completed)) ;;
-      UNHEALTHY|FAILED) ((++sum_unhealthy)) ;;
+      UNHEALTHY | FAILED) ((++sum_unhealthy)) ;;
       NO_CONTAINERS) ((++sum_no_containers)) ;;
-      UP|*) ((++sum_no_hc)) ;;
+      UP | *) ((++sum_no_hc)) ;;
     esac
   done <<<"$all_services"
 
@@ -627,7 +631,7 @@ execute() {
   print_detected_services_table "$all_services" "${DOCKER_SERVICES_LIST:-}"
 
   if ((health_failed != 0)); then
-  docker_health_emit_json_report "failed" "unhealthy_services_detected" "$all_services"
+    docker_health_emit_json_report "failed" "unhealthy_services_detected" "$all_services"
     error "Some services failed healthcheck."
     exit 1
   fi

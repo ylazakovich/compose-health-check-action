@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 
-load 'bats-support/load'
-load 'bats-assert/load'
-load './helpers.bash'
+load '../bats-support/load'
+load '../bats-assert/load'
+load '../helpers.bash'
 
 @test "no_containers: target includes a service that was not started (reported as no_containers)" {
   export DOCKER_HEALTH_TIMEOUT="60"

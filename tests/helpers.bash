@@ -46,6 +46,7 @@ _hc_reset_compose_tracking() {
   HC_STDOUT_RAW=""
   HC_STDOUT=""
   HC_JSON=""
+  HC_REPO_ROOT=""
 }
 
 _hc_is_docker_compose_cmd() {
@@ -90,7 +91,11 @@ _hc_compose_down_last_project() {
   set +e
 
   if [[ -n "${HC_COMPOSE_PROJECT:-}" ]]; then
-    docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1
+    if [[ -n "${HC_REPO_ROOT:-}" ]]; then
+      (cd "$HC_REPO_ROOT" && docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1)
+    else
+      docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1
+    fi
   fi
 
   if [[ -n "${HC_JSON_FILE:-}" && -f "${HC_JSON_FILE:-}" ]]; then
@@ -113,7 +118,8 @@ run_healthcheck_action_sh() {
   local -a cmd=("$@")
 
   local repo_root
-  repo_root="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  HC_REPO_ROOT="$repo_root"
 
   # Reset tracking for this run
   _hc_reset_compose_tracking
@@ -144,7 +150,7 @@ run_healthcheck_action_sh() {
     cmd=( "${rewritten[@]}" )
   fi
 
-  run bash "$repo_root/entrypoint.sh" "${cmd[@]}"
+  run bash -c 'cd "$1" && shift && bash "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
 
   HC_RC="$status"
   HC_STDOUT_RAW="$output"
@@ -156,6 +162,68 @@ run_healthcheck_action_sh() {
   fi
 
   HC_JSON="$(printf '%s' "$HC_STDOUT" | _extract_last_json_object)"
+}
+
+run_healthcheck_action_inputs() {
+  local compose_files_input="${INPUT_COMPOSE_FILES:-}"
+  local additional_args_input="${INPUT_ADDITIONAL_COMPOSE_ARGS:-}"
+  local services_input="${INPUT_SERVICES:-}"
+  local report_format_input="${INPUT_REPORT_FORMAT:-json}"
+  local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
+
+  export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
+  export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
+
+  local -a cmd=()
+
+  parse_docker_command() {
+    if ! command -v python3 >/dev/null 2>&1; then
+      echo "python3 is required to parse docker-command safely." >&2
+      return 1
+    fi
+    python3 - <<'PY' "$docker_command_input"
+import shlex
+import sys
+
+cmd = sys.argv[1]
+parts = shlex.split(cmd)
+sys.stdout.write("\0".join(parts) + "\0")
+PY
+  }
+
+  if [[ -n "$docker_command_input" ]]; then
+    unset DOCKER_SERVICES_LIST
+    mapfile -d '' -t cmd < <(parse_docker_command)
+    if ((${#cmd[@]} < 2)) || [[ "${cmd[0]}" != "docker" || "${cmd[1]}" != "compose" ]]; then
+      echo "docker-command must start with 'docker compose'." >&2
+      return 1
+    fi
+  else
+    export DOCKER_SERVICES_LIST="${services_input}"
+    cmd=(docker compose)
+
+    while IFS= read -r file; do
+      if [[ -n "$file" ]]; then
+        cmd+=(-f "$file")
+      fi
+    done <<<"$compose_files_input"
+
+    cmd+=(up -d)
+
+    if [[ -n "$additional_args_input" ]]; then
+      local -a extra_args
+      read -r -a extra_args <<<"$additional_args_input"
+      cmd+=("${extra_args[@]}")
+    fi
+
+    if [[ -n "$services_input" ]]; then
+      local -a svc_arr
+      read -r -a svc_arr <<<"$services_input"
+      cmd+=("${svc_arr[@]}")
+    fi
+  fi
+
+  run_healthcheck_action_sh "${cmd[@]}"
 }
 
 assert_json() {

@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 
-load 'bats-support/load'
-load 'bats-assert/load'
-load './helpers.bash'
+load '../bats-support/load'
+load '../bats-assert/load'
+load '../helpers.bash'
 
 @test "multi-file compose: override adds healthcheck and service becomes healthy" {
   export DOCKER_HEALTH_TIMEOUT="60"

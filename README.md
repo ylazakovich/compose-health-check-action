@@ -53,13 +53,14 @@ pass or fail CI
 
 ## ⚙️ Configuration
 
-| Input                     | Required | Description                                                           |
-| ------------------------- | -------- | --------------------------------------------------------------------- |
-| `compose-files`           | yes      | One or more docker-compose files (default: `docker-compose.yml`)      |
-| `services`                | yes      | Services to check                                                     |
-| `timeout`                 | no       | Timeout per service in seconds (default: 120)                         |
-| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`) |
-| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)     |
+| Input                     | Required | Description                                                                                           |
+| ------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
+| `services`                | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set)       |
+| `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                         |
+| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
+| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
+| `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                       |
 
 Example:
 
@@ -73,6 +74,14 @@ Example:
       db 
       api
     timeout: 60
+```
+
+Run a custom compose command (replaces `compose-files` and `additional-compose-args`):
+
+```yaml
+- uses: ylazakovich/compose-health-check-action@v1
+  with:
+    docker-command: docker compose -f docker-compose.yml -f docker-compose.override.yml up -d api
 ```
 
 ---
@@ -161,13 +170,16 @@ Unhealthy services:
 </details>
 
 <details>
-<summary>⚠️ No services specified</summary>
+<summary>ℹ️ No services specified</summary>
 
 ```text
-❌ No services specified. Either:
-    - pass services in docker compose command, e.g. 'docker compose up -d web api'
-    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
-Error: Process completed with exit code 1.
+Checking health status of services (running only)...
+ℹ️  Service 'web' is healthy.
+
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Overall result:        OK (all services healthy)
 ```
 
 </details>
