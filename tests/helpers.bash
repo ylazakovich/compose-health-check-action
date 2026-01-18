@@ -46,6 +46,7 @@ _hc_reset_compose_tracking() {
   HC_STDOUT_RAW=""
   HC_STDOUT=""
   HC_JSON=""
+  HC_REPO_ROOT=""
 }
 
 _hc_is_docker_compose_cmd() {
@@ -90,7 +91,11 @@ _hc_compose_down_last_project() {
   set +e
 
   if [[ -n "${HC_COMPOSE_PROJECT:-}" ]]; then
-    docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1
+    if [[ -n "${HC_REPO_ROOT:-}" ]]; then
+      (cd "$HC_REPO_ROOT" && docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1)
+    else
+      docker compose -p "$HC_COMPOSE_PROJECT" "${HC_COMPOSE_FILES_ARGS[@]}" down -v --remove-orphans >/dev/null 2>&1
+    fi
   fi
 
   if [[ -n "${HC_JSON_FILE:-}" && -f "${HC_JSON_FILE:-}" ]]; then
@@ -113,7 +118,8 @@ run_healthcheck_action_sh() {
   local -a cmd=("$@")
 
   local repo_root
-  repo_root="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+  HC_REPO_ROOT="$repo_root"
 
   # Reset tracking for this run
   _hc_reset_compose_tracking
@@ -144,7 +150,7 @@ run_healthcheck_action_sh() {
     cmd=( "${rewritten[@]}" )
   fi
 
-  run bash "$repo_root/entrypoint.sh" "${cmd[@]}"
+  run bash -c 'cd "$1" && shift && bash "$1" "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
 
   HC_RC="$status"
   HC_STDOUT_RAW="$output"
@@ -166,18 +172,19 @@ run_healthcheck_action_inputs() {
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
 
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
-  export DOCKER_SERVICES_LIST="${services_input}"
   export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
 
   local -a cmd=()
 
   if [[ -n "$docker_command_input" ]]; then
+    unset DOCKER_SERVICES_LIST
     eval "cmd=($docker_command_input)"
     if ((${#cmd[@]} < 2)) || [[ "${cmd[0]}" != "docker" || "${cmd[1]}" != "compose" ]]; then
       echo "docker-command must start with 'docker compose'." >&2
       return 1
     fi
   else
+    export DOCKER_SERVICES_LIST="${services_input}"
     cmd=(docker compose)
 
     while IFS= read -r file; do

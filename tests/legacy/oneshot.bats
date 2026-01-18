@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "one-shot: exit 0 is treated as success (service is completed)" {
   export DOCKER_HEALTH_TIMEOUT="60"

@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "timeout: unhealthy service causes action to fail after timeout" {
   # Intentionally small timeout

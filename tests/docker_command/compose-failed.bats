@@ -2,14 +2,15 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
-@test "compose_failed: docker compose command fails and diagnostics are printed" {
-  export DOCKER_HEALTH_TIMEOUT="10"
-  export DOCKER_SERVICES_LIST="empty"
-  export DOCKER_HEALTH_REPORT_FORMAT="json"
+@test "docker-command: docker compose command fails and diagnostics are printed" {
+  export INPUT_TIMEOUT="10"
+  export INPUT_REPORT_FORMAT="json"
+  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.compose_failed.yml up -d empty"
+  unset INPUT_SERVICES
 
-  run_healthcheck_action_sh docker compose -f docker/docker-compose.compose_failed.yml up -d empty
+  run_healthcheck_action_inputs
 
   assert_failure
 

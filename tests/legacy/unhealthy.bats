@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "unhealthy: slow-broken becomes unhealthy and action fails" {
   export DOCKER_HEALTH_TIMEOUT="10"

@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "depends_on: db -> api -> web reaches healthy state (service_healthy conditions)" {
   export DOCKER_HEALTH_TIMEOUT="90"

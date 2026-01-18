@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "healthy: overall ok and web is healthy" {
   export DOCKER_HEALTH_TIMEOUT="60"

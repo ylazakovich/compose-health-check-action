@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "no-services: fails with guidance message" {
   export DOCKER_HEALTH_TIMEOUT="10"

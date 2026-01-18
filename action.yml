@@ -63,6 +63,10 @@ runs:
         docker_command_input="${{ inputs.docker-command }}"
 
         if [[ -n "$docker_command_input" ]]; then
+          unset DOCKER_SERVICES_LIST
+        fi
+
+        if [[ -n "$docker_command_input" ]]; then
           eval "CMD=($docker_command_input)"
           if ((${#CMD[@]} < 2)) || [[ "${CMD[0]}" != "docker" || "${CMD[1]}" != "compose" ]]; then
             echo "docker-command must start with 'docker compose'." >&2

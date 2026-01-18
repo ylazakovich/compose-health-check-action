@@ -2,7 +2,7 @@
 
 load 'bats-support/load'
 load 'bats-assert/load'
-load './helpers.bash'
+load '../helpers.bash'
 
 @test "services precedence: CLI services override DOCKER_SERVICES_LIST" {
   export DOCKER_HEALTH_TIMEOUT="60"
