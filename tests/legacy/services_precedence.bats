@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load 'bats-support/load'
-load 'bats-assert/load'
+load '../bats-support/load'
+load '../bats-assert/load'
 load '../helpers.bash'
 
 @test "services precedence: CLI services override DOCKER_SERVICES_LIST" {

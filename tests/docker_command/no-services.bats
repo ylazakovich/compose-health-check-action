@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load 'bats-support/load'
-load 'bats-assert/load'
+load '../bats-support/load'
+load '../bats-assert/load'
 load '../helpers.bash'
 
 @test "docker-command: fails when no services are provided and INPUT_SERVICES is not set" {

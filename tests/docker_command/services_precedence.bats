@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
-load 'bats-support/load'
-load 'bats-assert/load'
+load '../bats-support/load'
+load '../bats-assert/load'
 load '../helpers.bash'
 
 @test "docker-command: CLI services override INPUT_SERVICES" {
