@@ -150,7 +150,7 @@ run_healthcheck_action_sh() {
     cmd=( "${rewritten[@]}" )
   fi
 
-  run bash -c 'cd "$1" && shift && bash "$1" "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
+  run bash -c 'cd "$1" && shift && bash "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
 
   HC_RC="$status"
   HC_STDOUT_RAW="$output"
