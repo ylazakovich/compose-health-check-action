@@ -1,6 +1,13 @@
-## vx.x.x - SNAPSHOT
+## v2.1.0 - SNAPSHOT
 
-## v1.1.1 (25.12.2025)
+## v2.0.0 (18.01.2026)
+
+- Added `docker-command` input to run a custom `docker compose` command
+- Default to checking all services when none are specified
+- Hardened input parsing to avoid unsafe eval/word-splitting
+- Expanded Bats coverage with v1/v2 flows and quoted-path scenarios
+
+## v1.1.1 (18.01.2026)
 
 - Added bats tests [#33](https://github.com/ylazakovich/compose-health-check-action/pull/33)
 - Improved test infra
