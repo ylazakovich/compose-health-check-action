@@ -562,7 +562,8 @@ execute() {
     if [[ -z "$all_services" ]]; then
       error "No services specified. Either:
     - pass services in docker compose command, e.g. 'docker compose up -d web api'
-    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
+    - or define services in the compose file (none were found)."
       docker_health_emit_json_report "no_services" "no_services_specified" ""
       exit 1
     fi
