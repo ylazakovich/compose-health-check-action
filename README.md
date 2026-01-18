@@ -56,7 +56,7 @@ pass or fail CI
 | Input                     | Required | Description                                                                                            |
 | ------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
 | `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty)  |
-| `services`                | no       | Services to check (required unless included in `docker-command`; ignored when `docker-command` is set) |
+| `services`                | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set) |
 | `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                          |
 | `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                  |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                      |
@@ -170,13 +170,16 @@ Unhealthy services:
 </details>
 
 <details>
-<summary>⚠️ No services specified</summary>
+<summary>ℹ️ No services specified</summary>
 
 ```text
-❌ No services specified. Either:
-    - pass services in docker compose command, e.g. 'docker compose up -d web api'
-    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services).
-Error: Process completed with exit code 1.
+Checking health status of services (running only)...
+ℹ️  Service 'web' is healthy.
+
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Overall result:        OK (all services healthy)
 ```
 
 </details>

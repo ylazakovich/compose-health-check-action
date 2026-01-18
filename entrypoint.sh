@@ -492,16 +492,7 @@ execute() {
 
   if ((${#services_from_cmd[@]} > 0)); then
     DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
-  else
-    if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
-      error "No services specified. Either:
-    - pass services in docker compose command, e.g. 'docker compose up -d web api'
-    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
-      docker_health_emit_json_report "no_services" "no_services_specified" ""
-    exit 1
-    fi
   fi
-  read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
 
   local compose_rc=0 tmp_out
   tmp_out="$(mktemp)"
@@ -566,6 +557,19 @@ execute() {
 
   local all_services
   all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"
+
+  if [[ -z "${DOCKER_SERVICES_LIST:-}" ]]; then
+    if [[ -z "$all_services" ]]; then
+      error "No services specified. Either:
+    - pass services in docker compose command, e.g. 'docker compose up -d web api'
+    - or set DOCKER_SERVICES_LIST environment variable (space-separated list of services)."
+      docker_health_emit_json_report "no_services" "no_services_specified" ""
+      exit 1
+    fi
+    DOCKER_SERVICES_LIST="$(tr '\n' ' ' <<<"$all_services")"
+  fi
+
+  read -r -a services_to_check <<<"${DOCKER_SERVICES_LIST:-}"
 
   echo "Checking health status of services (running only)..."
   local svc
