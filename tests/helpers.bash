@@ -158,6 +158,52 @@ run_healthcheck_action_sh() {
   HC_JSON="$(printf '%s' "$HC_STDOUT" | _extract_last_json_object)"
 }
 
+run_healthcheck_action_inputs() {
+  local compose_files_input="${INPUT_COMPOSE_FILES:-}"
+  local additional_args_input="${INPUT_ADDITIONAL_COMPOSE_ARGS:-}"
+  local services_input="${INPUT_SERVICES:-}"
+  local report_format_input="${INPUT_REPORT_FORMAT:-json}"
+  local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
+
+  export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
+  export DOCKER_SERVICES_LIST="${services_input}"
+  export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
+
+  local -a cmd=()
+
+  if [[ -n "$docker_command_input" ]]; then
+    eval "cmd=($docker_command_input)"
+    if ((${#cmd[@]} < 2)) || [[ "${cmd[0]}" != "docker" || "${cmd[1]}" != "compose" ]]; then
+      echo "docker-command must start with 'docker compose'." >&2
+      return 1
+    fi
+  else
+    cmd=(docker compose)
+
+    while IFS= read -r file; do
+      if [[ -n "$file" ]]; then
+        cmd+=(-f "$file")
+      fi
+    done <<<"$compose_files_input"
+
+    cmd+=(up -d)
+
+    if [[ -n "$additional_args_input" ]]; then
+      local -a extra_args
+      extra_args=( $additional_args_input )
+      cmd+=("${extra_args[@]}")
+    fi
+
+    if [[ -n "$services_input" ]]; then
+      local -a svc_arr
+      svc_arr=( $services_input )
+      cmd+=("${svc_arr[@]}")
+    fi
+  fi
+
+  run_healthcheck_action_sh "${cmd[@]}"
+}
+
 assert_json() {
   local expr="$1"
   [[ -n "${HC_JSON:-}" ]] || { echo "JSON is empty"; return 1; }

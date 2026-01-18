@@ -14,7 +14,7 @@ inputs:
       docker-compose.yml
   services:
     description: "List of services to start (space-separated)."
-    required: true
+    required: false
     default: ""
   timeout:
     description: "Healthcheck timeout per service in seconds"
@@ -22,6 +22,10 @@ inputs:
     default: "120"
   additional-compose-args:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
+    required: false
+    default: ""
+  docker-command:
+    description: "Full docker compose command to execute instead of compose-files/services (e.g. docker compose -f docker-compose.yml up -d web)"
     required: false
     default: ""
   report-format:
@@ -56,25 +60,34 @@ runs:
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
         report_format_input="${{ inputs.report-format }}"
+        docker_command_input="${{ inputs.docker-command }}"
 
-        CMD=(docker compose)
-
-        while IFS= read -r file; do
-          if [[ -n "$file" ]]; then
-            CMD+=(-f "$file")
+        if [[ -n "$docker_command_input" ]]; then
+          eval "CMD=($docker_command_input)"
+          if ((${#CMD[@]} < 2)) || [[ "${CMD[0]}" != "docker" || "${CMD[1]}" != "compose" ]]; then
+            echo "docker-command must start with 'docker compose'." >&2
+            exit 1
           fi
-        done <<<"$compose_files_input"
+        else
+          CMD=(docker compose)
 
-        CMD+=(up -d)
+          while IFS= read -r file; do
+            if [[ -n "$file" ]]; then
+              CMD+=(-f "$file")
+            fi
+          done <<<"$compose_files_input"
 
-        if [[ -n "$additional_args_input" ]]; then
-          extra_args=( $additional_args_input )
-          CMD+=("${extra_args[@]}")
-        fi
+          CMD+=(up -d)
 
-        if [[ -n "$services_input" ]]; then
-          svc_arr=( $services_input )
-          CMD+=("${svc_arr[@]}")
+          if [[ -n "$additional_args_input" ]]; then
+            extra_args=( $additional_args_input )
+            CMD+=("${extra_args[@]}")
+          fi
+
+          if [[ -n "$services_input" ]]; then
+            svc_arr=( $services_input )
+            CMD+=("${svc_arr[@]}")
+          fi
         fi
 
         TMP_OUT="$(mktemp)"
