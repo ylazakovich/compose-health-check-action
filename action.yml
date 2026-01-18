@@ -72,13 +72,13 @@ runs:
             exit 1
           fi
           python3 - <<'PY' "$docker_command_input"
-import shlex
-import sys
+        import shlex
+        import sys
 
-cmd = sys.argv[1]
-parts = shlex.split(cmd)
-sys.stdout.write("\0".join(parts) + "\0")
-PY
+        cmd = sys.argv[1]
+        parts = shlex.split(cmd)
+        sys.stdout.write("\0".join(parts) + "\0")
+        PY
         }
 
         if [[ -n "$docker_command_input" ]]; then
