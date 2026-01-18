@@ -43,24 +43,24 @@ pass or fail CI
 ```
 
 | Scenario                   | Result  |
-|----------------------------|---------|
-| All services healthy       | ✅ Pass  |
-| Unhealthy service detected | ❌ Fail  |
-| Docker Compose error       | ❌ Fail  |
+| -------------------------- | ------- |
+| All services healthy       | ✅ Pass |
+| Unhealthy service detected | ❌ Fail |
+| Docker Compose error       | ❌ Fail |
 | No healthcheck defined     | ⚠️ Skip |
 
 ---
 
 ## ⚙️ Configuration
 
-| Input                     | Required | Description                                                                                           |
-|---------------------------|----------|-------------------------------------------------------------------------------------------------------|
-| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
+| Input                     | Required | Description                                                                                            |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty)  |
 | `services`                | no       | Services to check (required unless included in `docker-command`; ignored when `docker-command` is set) |
-| `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                         |
-| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
-| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
-| `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                       |
+| `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                          |
+| `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                  |
+| `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                      |
+| `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                        |
 
 Example:
 
