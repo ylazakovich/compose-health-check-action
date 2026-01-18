@@ -17,7 +17,7 @@
 ## ⚡ Quick start
 
 ```yaml
-- uses: ylazakovich/compose-health-check-action@v1
+- uses: ylazakovich/compose-health-check-action@v2
   with:
     compose-files: |
       docker-compose.yml
@@ -65,7 +65,7 @@ pass or fail CI
 Example:
 
 ```yaml
-- uses: ylazakovich/compose-health-check-action@v1
+- uses: ylazakovich/compose-health-check-action@v2
   with:
     compose-files: |
       docker-compose.yml
@@ -79,7 +79,7 @@ Example:
 Run a custom compose command (replaces `compose-files` and `additional-compose-args`):
 
 ```yaml
-- uses: ylazakovich/compose-health-check-action@v1
+- uses: ylazakovich/compose-health-check-action@v2
   with:
     docker-command: docker compose -f docker-compose.yml -f docker-compose.override.yml up -d api
 ```
