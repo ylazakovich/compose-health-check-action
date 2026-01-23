@@ -55,6 +55,27 @@ _hc_is_docker_compose_cmd() {
   [[ "${cmd[0]}" == "docker" && "${cmd[1]}" == "compose" ]]
 }
 
+_hc_extract_project_name_flag() {
+  local -a cmd=("$@")
+  local i=0
+  while [[ $i -lt ${#cmd[@]} ]]; do
+    case "${cmd[$i]}" in
+      -p|--project-name)
+        if [[ $((i+1)) -lt ${#cmd[@]} ]]; then
+          echo "${cmd[$((i+1))]}"
+          return 0
+        fi
+        ;;
+      --project-name=*)
+        echo "${cmd[$i]#*=}"
+        return 0
+        ;;
+    esac
+    i=$((i+1))
+  done
+  return 1
+}
+
 _hc_collect_compose_files_args() {
   local -a cmd=("$@")
   HC_COMPOSE_FILES_ARGS=()
@@ -135,19 +156,25 @@ run_healthcheck_action_sh() {
 
   # If this is `docker compose ...`, inject unique project name and remember -f args for teardown.
   if _hc_is_docker_compose_cmd "${cmd[@]}"; then
-    HC_COMPOSE_PROJECT="$(_hc_make_project_name)"
+    if HC_COMPOSE_PROJECT="$(_hc_extract_project_name_flag "${cmd[@]}")"; then
+      :
+    else
+      HC_COMPOSE_PROJECT="$(_hc_make_project_name)"
+    fi
 
     # Collect compose file args for teardown from the original command.
     _hc_collect_compose_files_args "${cmd[@]}"
 
-    # Rebuild command with `-p <project>` injected right after `docker compose`
-    local -a rewritten=( "docker" "compose" "-p" "$HC_COMPOSE_PROJECT" )
-    local i=2
-    while [[ $i -lt ${#cmd[@]} ]]; do
-      rewritten+=( "${cmd[$i]}" )
-      i=$((i+1))
-    done
-    cmd=( "${rewritten[@]}" )
+    if ! _hc_extract_project_name_flag "${cmd[@]}" >/dev/null 2>&1; then
+      # Rebuild command with `-p <project>` injected right after `docker compose`
+      local -a rewritten=( "docker" "compose" "-p" "$HC_COMPOSE_PROJECT" )
+      local i=2
+      while [[ $i -lt ${#cmd[@]} ]]; do
+        rewritten+=( "${cmd[$i]}" )
+        i=$((i+1))
+      done
+      cmd=( "${rewritten[@]}" )
+    fi
   fi
 
   run bash -c 'cd "$1" && shift && bash "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
