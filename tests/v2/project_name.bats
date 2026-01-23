@@ -38,7 +38,8 @@ load '../helpers.bash'
 
 @test "fallback prefers compose-project-name when no containers (docker-command)" {
   export INPUT_REPORT_FORMAT="json"
-  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0"
+  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0 web"
+  export INPUT_TIMEOUT="0"
   export INPUT_COMPOSE_PROJECT_NAME="explicitname"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
   export COMPOSE_PROJECT_NAME="envname"
@@ -55,7 +56,8 @@ load '../helpers.bash'
 
 @test "fallback uses COMPOSE_PROJECT_NAME when no containers and no input (docker-command)" {
   export INPUT_REPORT_FORMAT="json"
-  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0"
+  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0 web"
+  export INPUT_TIMEOUT="0"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
   export COMPOSE_PROJECT_NAME="envname"
   unset INPUT_COMPOSE_PROJECT_NAME
@@ -72,7 +74,8 @@ load '../helpers.bash'
 
 @test "fallback uses repo basename when no containers and no explicit names (docker-command)" {
   export INPUT_REPORT_FORMAT="json"
-  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0"
+  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.profiles.yml --profile default --profile extra up -d --scale web=0 --scale worker=0 --scale sidecar=0 web"
+  export INPUT_TIMEOUT="0"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
   unset INPUT_COMPOSE_PROJECT_NAME
   unset COMPOSE_PROJECT_NAME
