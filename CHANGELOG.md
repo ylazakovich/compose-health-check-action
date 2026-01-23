@@ -1,8 +1,9 @@
 ## v2.2.0 - SNAPSHOT
 
-## v2.1.1 PRE-RELEASE
+## v2.1.1 (23.01.2026)
 
 - Fixed `compose-services` input wiring to avoid unbound variable errors in GitHub Actions.
+- On `docker compose` failures, print logs for unhealthy/exited containers to aid diagnostics.
 
 ## v2.1.0 (23.01.2026)
 
