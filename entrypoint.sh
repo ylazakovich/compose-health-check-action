@@ -35,7 +35,9 @@ get_repo_basename() {
     echo "${GITHUB_REPOSITORY##*/}"
     return 0
   fi
-  basename "$(pwd)"
+  local current_dir
+  current_dir="$(pwd)" || { error "Failed to get current directory"; return 1; }
+  basename "$current_dir"
 }
 
 resolve_project_name() {
