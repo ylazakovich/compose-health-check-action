@@ -75,7 +75,10 @@ persist_project_name() {
       export COMPOSE_PROJECT_NAME="$resolved_project"
     fi
     if ((auto_apply == 1)); then
-      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"
+      if ! update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"; then
+        error "Failed to persist project name to $DOCKER_HEALTH_PROJECT_ENV_FILE"
+        return 1
+      fi
     fi
   fi
 }
