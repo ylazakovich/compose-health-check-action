@@ -108,14 +108,14 @@ load '../helpers.bash'
 @test "fallback uses repo basename when no containers and no explicit names" {
   export INPUT_REPORT_FORMAT="json"
   export INPUT_COMPOSE_FILES="docker/docker-compose.profiles.yml"
-  export INPUT_COMPOSE_PROFILES="default extra"
-  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale web=0 --scale worker=0 --scale sidecar=0"
+  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale web=0"
   export INPUT_TIMEOUT="0"
   export INPUT_COMPOSE_SERVICES="web"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
   export GITHUB_REPOSITORY="ylazakovich/compose-health-check-action"
   export HC_SKIP_PROJECT_INJECT="1"
   unset INPUT_COMPOSE_PROJECT_NAME
+  unset INPUT_COMPOSE_PROFILES
   unset COMPOSE_PROJECT_NAME
 
   tmpdir="$(mktemp -d)"
