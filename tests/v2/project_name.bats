@@ -96,6 +96,7 @@ load '../helpers.bash'
   export INPUT_REPORT_FORMAT="json"
   export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.named.yml up -d"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
+  export HC_SKIP_PROJECT_INJECT="1"
 
   tmpdir="$(mktemp -d)"
   export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"

@@ -127,12 +127,9 @@ load '../helpers.bash'
 
   assert_failure
   expected_repo="compose-health-check-action"
-  if [[ -f "$INPUT_PROJECT_NAME_ENV_FILE" ]]; then
-    run grep -E "^COMPOSE_PROJECT_NAME=${expected_repo}$" "$INPUT_PROJECT_NAME_ENV_FILE"
-    assert_success
-  else
-    assert_success "No env file created; likely uses compose directory when containers exist."
-  fi
+  expected_alt="$(basename "$HC_REPO_ROOT")"
+  run grep -E "^COMPOSE_PROJECT_NAME=(${expected_repo}|${expected_alt})$" "$INPUT_PROJECT_NAME_ENV_FILE"
+  assert_success
 }
 
 @test "auto-apply uses compose file name field" {
