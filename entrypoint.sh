@@ -82,7 +82,7 @@ get_compose_project_name() {
   local -a compose_cmd=("$@")
   local container_id=""
 
-  container_id="$("${compose_cmd[@]}" ps -q 2>/dev/null | head -n 1)"
+  container_id="$("${compose_cmd[@]}" ps -q 2>/dev/null | head -n 1 || true)"
   if [[ -n "$container_id" ]]; then
     docker inspect "$container_id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null
   fi
