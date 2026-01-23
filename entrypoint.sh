@@ -47,7 +47,7 @@ update_project_env_file() {
   local dir
   dir="$(dirname "$file")"
   if [[ "$dir" != "." ]]; then
-    mkdir -p "$dir" 2>/dev/null || true
+    mkdir -p "$dir"
   fi
 
   if [[ -f "$file" ]]; then
@@ -71,14 +71,10 @@ update_project_env_file() {
         }
       ' "$file" >"$tmp" && mv "$tmp" "$file"
     else
-      printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$project_name" >>"$file" 2>/dev/null || true
+      printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$project_name" >>"$file"
     fi
   else
-    printf 'COMPOSE_PROJECT_NAME=%s\n' "$project_name" >"$file" 2>/dev/null || true
-  fi
-
-  if ! grep -q '^COMPOSE_PROJECT_NAME=' "$file" 2>/dev/null; then
-    warning "Unable to write COMPOSE_PROJECT_NAME to ${file}."
+    printf 'COMPOSE_PROJECT_NAME=%s\n' "$project_name" >"$file"
   fi
 }
 
