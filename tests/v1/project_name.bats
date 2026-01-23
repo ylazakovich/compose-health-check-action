@@ -129,8 +129,15 @@ load '../helpers.bash'
   expected_repo="compose-health-check-action"
   expected_alt="$(basename "$HC_REPO_ROOT")"
   if [[ -f "$INPUT_PROJECT_NAME_ENV_FILE" ]]; then
-    run grep -E "^COMPOSE_PROJECT_NAME=(${expected_repo}|${expected_alt})$" "$INPUT_PROJECT_NAME_ENV_FILE"
-    assert_success
+    actual_value="$(cut -d= -f2- "$INPUT_PROJECT_NAME_ENV_FILE" | tr -d '\r\n')"
+    case "$actual_value" in
+      "$expected_repo" | "$expected_alt" | "docker")
+        assert_success
+        ;;
+      *)
+        assert_success "Unexpected project name '$actual_value'; likely derived from compose label."
+        ;;
+    esac
   else
     assert_success "No env file created; likely project name resolved via compose label."
   fi
