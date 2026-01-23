@@ -262,6 +262,38 @@ docker_health_add_unhealthy_target() {
   DOCKER_HEALTH_UNHEALTHY_TARGETS+=("${service}|${cid}")
 }
 
+collect_compose_failed_targets() {
+  local services="$1"
+
+  [[ -n "$services" ]] || return 0
+
+  local -a project_filter=()
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    project_filter+=(--filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}")
+  fi
+
+  local service cid state exit_code health
+  while IFS= read -r service; do
+    [[ -n "$service" ]] || continue
+    while IFS= read -r cid; do
+      [[ -n "$cid" ]] || continue
+      state="$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")"
+      case "$state" in
+        exited | dead)
+          exit_code="$(docker inspect -f '{{.State.ExitCode}}' "$cid" 2>/dev/null || echo "1")"
+          if [[ "$exit_code" != "0" ]]; then
+            docker_health_add_unhealthy_target "$service" "$cid"
+          fi
+          ;;
+        *)
+          ;;
+      esac
+    done < <(docker ps --all --no-trunc -q \
+      ${project_filter+"${project_filter[@]}"} \
+      --filter "label=com.docker.compose.service=$service")
+  done <<<"$(tr ' ' '\n' <<<"$services")"
+}
+
 wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
@@ -706,6 +738,19 @@ execute() {
     docker ps --all --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}' || true
     echo
     echo "─────────────────────────────────────────────────────────────"
+
+    DOCKER_HEALTH_UNHEALTHY_TARGETS=()
+    local failed_services=""
+    if [[ -n "${DOCKER_SERVICES_LIST:-}" ]]; then
+      failed_services="${DOCKER_SERVICES_LIST}"
+    else
+      failed_services="$("${compose_base_cmd[@]}" config --services 2>/dev/null || true)"
+    fi
+
+    collect_compose_failed_targets "$failed_services"
+    if ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} > 0)); then
+      print_unhealthy_services_details
+    fi
 
     error "Some services failed to start (docker compose error)."
     docker_health_emit_json_report "compose_failed" "docker_compose_failed" ""
