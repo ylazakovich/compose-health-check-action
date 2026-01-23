@@ -62,6 +62,7 @@ pass or fail CI
 | Input                     | Required | Description                                                                                           |
 | ------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
 | `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
+| `compose-project-name`    | no       | Explicit docker compose project name (overridden by `-p/--project-name` in `docker-command`)          |
 | `compose-profiles`        | no       | One or more compose profiles (space or newline separated; ignored when `docker-command` is set)       |
 | `compose-services`        | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set)       |
 | `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
@@ -70,9 +71,8 @@ pass or fail CI
 | `log-lines`               | no       | Number of healthcheck/container log lines to show on failure (default: 25)                            |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
 | `docker-command`          | no       | Full `docker compose` command                                                                         |
-| `compose-project-name`    | no       | Explicit docker compose project name (overridden by `-p/--project-name` in `docker-command`)         |
-| `auto-apply-project-name` | no       | When `true`, resolve and export `COMPOSE_PROJECT_NAME` and write it to `project-name-env-file`       |
-| `project-name-env-file`   | no       | Env file path to write `COMPOSE_PROJECT_NAME` (default: `system.env`)                                |
+| `auto-apply-project-name` | no       | When `true`, resolve and export `COMPOSE_PROJECT_NAME` and write it to `project-name-env-file`        |
+| `project-name-env-file`   | no       | Env file path to write `COMPOSE_PROJECT_NAME` (default: `system.env`)                                 |
 
 Example:
 
