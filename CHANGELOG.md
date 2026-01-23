@@ -1,4 +1,6 @@
-## v2.1.0 - SNAPSHOT
+## v2.1.1 - SNAPSHOT
+
+## v2.1.0 (23.01.2026)
 
 - Added `log-lines` input to control diagnostics output length
 - Added Bats coverage for `log-lines` in v1/v2 flows
