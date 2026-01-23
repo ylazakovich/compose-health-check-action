@@ -55,6 +55,75 @@ _hc_is_docker_compose_cmd() {
   [[ "${cmd[0]}" == "docker" && "${cmd[1]}" == "compose" ]]
 }
 
+_hc_extract_project_name_flag() {
+  local -a cmd=("$@")
+  local i=0
+  while [[ $i -lt ${#cmd[@]} ]]; do
+    case "${cmd[$i]}" in
+      -p|--project-name)
+        if [[ $((i+1)) -lt ${#cmd[@]} ]]; then
+          echo "${cmd[$((i+1))]}"
+          return 0
+        fi
+        ;;
+      --project-name=*)
+        echo "${cmd[$i]#*=}"
+        return 0
+        ;;
+    esac
+    i=$((i+1))
+  done
+  return 1
+}
+
+_hc_project_name_from_args() {
+  local -a cmd=("$@")
+  local i=0
+  local project_dir=""
+  local first_compose_file=""
+
+  while [[ $i -lt ${#cmd[@]} ]]; do
+    case "${cmd[$i]}" in
+      -f|--file)
+        if [[ -z "$first_compose_file" && $((i+1)) -lt ${#cmd[@]} ]]; then
+          first_compose_file="${cmd[$((i+1))]}"
+        fi
+        i=$((i+1))
+        ;;
+      --file=*)
+        if [[ -z "$first_compose_file" ]]; then
+          first_compose_file="${cmd[$i]#*=}"
+        fi
+        ;;
+      --project-directory)
+        if [[ $((i+1)) -lt ${#cmd[@]} ]]; then
+          project_dir="${cmd[$((i+1))]}"
+        fi
+        i=$((i+1))
+        ;;
+      --project-directory=*)
+        project_dir="${cmd[$i]#*=}"
+        ;;
+    esac
+    i=$((i+1))
+  done
+
+  local base_dir=""
+  if [[ -n "$project_dir" ]]; then
+    base_dir="$project_dir"
+  elif [[ -n "$first_compose_file" ]]; then
+    base_dir="$(dirname "$first_compose_file")"
+  else
+    base_dir="$(pwd)"
+  fi
+
+  if [[ -n "$base_dir" ]]; then
+    if base_dir="$(cd "$base_dir" 2>/dev/null && pwd)"; then
+      basename "$base_dir"
+    fi
+  fi
+}
+
 _hc_collect_compose_files_args() {
   local -a cmd=("$@")
   HC_COMPOSE_FILES_ARGS=()
@@ -135,19 +204,27 @@ run_healthcheck_action_sh() {
 
   # If this is `docker compose ...`, inject unique project name and remember -f args for teardown.
   if _hc_is_docker_compose_cmd "${cmd[@]}"; then
-    HC_COMPOSE_PROJECT="$(_hc_make_project_name)"
+    if HC_COMPOSE_PROJECT="$(_hc_extract_project_name_flag "${cmd[@]}")"; then
+      :
+    elif [[ -n "${HC_SKIP_PROJECT_INJECT:-}" ]]; then
+      HC_COMPOSE_PROJECT="$(_hc_project_name_from_args "${cmd[@]}")"
+    else
+      HC_COMPOSE_PROJECT="$(_hc_make_project_name)"
+    fi
 
     # Collect compose file args for teardown from the original command.
     _hc_collect_compose_files_args "${cmd[@]}"
 
-    # Rebuild command with `-p <project>` injected right after `docker compose`
-    local -a rewritten=( "docker" "compose" "-p" "$HC_COMPOSE_PROJECT" )
-    local i=2
-    while [[ $i -lt ${#cmd[@]} ]]; do
-      rewritten+=( "${cmd[$i]}" )
-      i=$((i+1))
-    done
-    cmd=( "${rewritten[@]}" )
+    if ! _hc_extract_project_name_flag "${cmd[@]}" >/dev/null 2>&1 && [[ -z "${HC_SKIP_PROJECT_INJECT:-}" ]]; then
+      # Rebuild command with `-p <project>` injected right after `docker compose`
+      local -a rewritten=( "docker" "compose" "-p" "$HC_COMPOSE_PROJECT" )
+      local i=2
+      while [[ $i -lt ${#cmd[@]} ]]; do
+        rewritten+=( "${cmd[$i]}" )
+        i=$((i+1))
+      done
+      cmd=( "${rewritten[@]}" )
+    fi
   fi
 
   run bash -c 'cd "$1" && shift && bash "$@"' _ "$repo_root" "$repo_root/entrypoint.sh" "${cmd[@]}"
@@ -172,6 +249,9 @@ run_healthcheck_action_inputs() {
   local report_format_input="${INPUT_REPORT_FORMAT:-json}"
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
   local compose_profiles_input="${INPUT_COMPOSE_PROFILES:-}"
+  local compose_project_name_input="${INPUT_COMPOSE_PROJECT_NAME:-}"
+  local auto_apply_project_name_input="${INPUT_AUTO_APPLY_PROJECT_NAME:-}"
+  local project_name_env_file_input="${INPUT_PROJECT_NAME_ENV_FILE:-}"
 
   local repo_root
   repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
@@ -179,6 +259,9 @@ run_healthcheck_action_inputs() {
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
   export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
   export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
+  export DOCKER_HEALTH_PROJECT_NAME_INPUT="${compose_project_name_input}"
+  export DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME="${auto_apply_project_name_input}"
+  export DOCKER_HEALTH_PROJECT_ENV_FILE="${project_name_env_file_input:-system.env}"
 
   local -a cmd=()
 

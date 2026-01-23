@@ -62,6 +62,7 @@ pass or fail CI
 | Input                     | Required | Description                                                                                           |
 | ------------------------- | -------- | ----------------------------------------------------------------------------------------------------- |
 | `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
+| `compose-project-name`    | no       | Explicit docker compose project name (overridden by `-p/--project-name` in `docker-command`)          |
 | `compose-profiles`        | no       | One or more compose profiles (space or newline separated; ignored when `docker-command` is set)       |
 | `compose-services`        | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set)       |
 | `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
@@ -70,6 +71,8 @@ pass or fail CI
 | `log-lines`               | no       | Number of healthcheck/container log lines to show on failure (default: 25)                            |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
 | `docker-command`          | no       | Full `docker compose` command                                                                         |
+| `auto-apply-project-name` | no       | When `true`, resolve and export `COMPOSE_PROJECT_NAME` and write it to `project-name-env-file`        |
+| `project-name-env-file`   | no       | Env file path to write `COMPOSE_PROJECT_NAME` (default: `system.env`)                                 |
 
 Example:
 
@@ -86,6 +89,8 @@ Example:
       default
     timeout: 60
     log-lines: 50
+    auto-apply-project-name: true
+    project-name-env-file: system.env
 ```
 
 Run a custom compose command (replaces `compose-files` and `additional-compose-args`):
@@ -95,6 +100,18 @@ Run a custom compose command (replaces `compose-files` and `additional-compose-a
   with:
     docker-command: docker compose -f docker-compose.yml -f docker-compose.override.yml up -d api
 ```
+
+### Project name resolution
+
+When `auto-apply-project-name: true`, the action **observes the actual project name after `docker compose up`** by inspecting a created container label (`com.docker.compose.project`). This automatically respects `-p/--project-name`, `name:` in compose files, and project directory resolution handled by Docker Compose.
+
+If no container is found (e.g., compose didn't start anything), it falls back in this order:
+
+1. `compose-project-name` input
+2. Existing `COMPOSE_PROJECT_NAME` environment variable
+3. Repository name (`GITHUB_REPOSITORY` basename)
+
+If `auto-apply-project-name` is `false`, the action does not infer or write a project name; it only uses explicit values (`compose-project-name` or `COMPOSE_PROJECT_NAME`) if set.
 
 ---
 

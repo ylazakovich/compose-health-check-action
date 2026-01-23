@@ -40,6 +40,18 @@ inputs:
     description: "Full docker compose command to execute instead of compose-files/services (e.g. docker compose -f docker-compose.yml up -d web)"
     required: false
     default: ""
+  compose-project-name:
+    description: "Explicit docker compose project name (overridden by -p/--project-name in docker-command)."
+    required: false
+    default: ""
+  auto-apply-project-name:
+    description: "When true, resolve and export COMPOSE_PROJECT_NAME and write it to project-name-env-file."
+    required: false
+    default: "false"
+  project-name-env-file:
+    description: "Env file path to write COMPOSE_PROJECT_NAME when auto-apply-project-name is enabled."
+    required: false
+    default: "system.env"
   report-format:
     description: "Healthcheck report format: text | json | both"
     required: false
@@ -64,6 +76,9 @@ runs:
         DOCKER_HEALTH_LOG_LINES: ${{ inputs.log-lines }}
         DOCKER_SERVICES_LIST: ${{ inputs.compose-services }}
         DOCKER_HEALTH_REPORT_FORMAT: ${{ inputs.report-format }}
+        DOCKER_HEALTH_PROJECT_NAME_INPUT: ${{ inputs.compose-project-name }}
+        DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME: ${{ inputs.auto-apply-project-name }}
+        DOCKER_HEALTH_PROJECT_ENV_FILE: ${{ inputs.project-name-env-file }}
       run: |
         set -euo pipefail
 

@@ -6,6 +6,9 @@ source "$SCRIPT_DIR/lib/logging.sh"
 
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
 DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-25}"
+DOCKER_HEALTH_PROJECT_NAME_INPUT="${DOCKER_HEALTH_PROJECT_NAME_INPUT:-}"
+DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME="${DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME:-}"
+DOCKER_HEALTH_PROJECT_ENV_FILE="${DOCKER_HEALTH_PROJECT_ENV_FILE:-system.env}"
 
 # Report format: text | json | both
 DOCKER_HEALTH_REPORT_FORMAT="${DOCKER_HEALTH_REPORT_FORMAT:-text}"
@@ -19,6 +22,136 @@ case "${DOCKER_HEALTH_REPORT_FORMAT}" in
     exit 1
     ;;
 esac
+
+is_truthy() {
+  case "${1:-}" in
+    1 | true | TRUE | yes | YES | on | ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+get_repo_basename() {
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    echo "${GITHUB_REPOSITORY##*/}"
+    return 0
+  fi
+  local current_dir
+  current_dir="$(pwd)" || { error "Failed to get current directory"; return 1; }
+  basename "$current_dir"
+}
+
+resolve_project_name() {
+  local -a compose_cmd=("$@")
+  local resolved_project=""
+  local resolved_from_compose=""
+  local auto_apply=0
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  resolved_from_compose="$(get_compose_project_name "${compose_cmd[@]}")"
+  if [[ -n "$resolved_from_compose" ]]; then
+    resolved_project="$resolved_from_compose"
+  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    resolved_project="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    resolved_project="$COMPOSE_PROJECT_NAME"
+  elif ((auto_apply == 1)); then
+    resolved_project="$(get_repo_basename)"
+  fi
+
+  echo "$resolved_project"
+}
+
+persist_project_name() {
+  local resolved_project="$1"
+  local auto_apply=0
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  if [[ -n "$resolved_project" ]]; then
+    if ((auto_apply == 1)) || [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" || -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+      export COMPOSE_PROJECT_NAME="$resolved_project"
+    fi
+    if ((auto_apply == 1)); then
+      if ! update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"; then
+        error "Failed to persist project name to $DOCKER_HEALTH_PROJECT_ENV_FILE"
+        return 1
+      fi
+    fi
+  fi
+}
+
+update_project_env_file() {
+  local file="$1"
+  local project_name="$2"
+
+  [[ -n "$file" ]] || return 0
+
+  local dir
+  dir="$(dirname "$file")"
+  if [[ "$dir" != "." ]]; then
+    mkdir -p "$dir"
+  fi
+
+  if [[ -f "$file" ]]; then
+    if grep -q '^COMPOSE_PROJECT_NAME=' "$file"; then
+      local tmp
+      tmp="$(mktemp)"
+      if awk -v v="$project_name" '
+        BEGIN { done=0 }
+        /^COMPOSE_PROJECT_NAME=/ {
+          if (!done) {
+            print "COMPOSE_PROJECT_NAME=" v
+            done=1
+            next
+          }
+        }
+        { print }
+        END {
+          if (!done) {
+            print "COMPOSE_PROJECT_NAME=" v
+          }
+        }
+      ' "$file" >"$tmp"; then
+        mv "$tmp" "$file"
+      else
+        rm -f "$tmp"
+        return 1
+      fi
+    else
+      printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$project_name" >>"$file"
+    fi
+  else
+    printf 'COMPOSE_PROJECT_NAME=%s\n' "$project_name" >"$file"
+  fi
+}
+
+get_compose_project_name() {
+  local -a compose_cmd=("$@")
+  local container_id=""
+
+  container_id="$("${compose_cmd[@]}" ps -q 2>/dev/null | head -n 1 || true)"
+  if [[ -n "$container_id" ]]; then
+    local project_label
+    project_label="$(docker inspect "$container_id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null || true)"
+    if [[ -z "$project_label" ]]; then
+      debug "Container $container_id found but com.docker.compose.project label is missing"
+    fi
+    echo "$project_label"
+  fi
+}
+
+apply_explicit_project_name_input() {
+  if [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    export COMPOSE_PROJECT_NAME="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  fi
+}
+
+apply_explicit_project_name_input
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
@@ -514,6 +647,20 @@ execute() {
     DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
   fi
 
+  local -a compose_base_cmd=("docker" "compose")
+  local j
+
+  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
+    if [[ "${cmd_args[j]}" == "up" ]]; then
+      break
+    fi
+    compose_base_cmd+=("${cmd_args[j]}")
+  done
+
+  if ((${#profile_args_post[@]} > 0)); then
+    compose_base_cmd+=("${profile_args_post[@]}")
+  fi
+
   local compose_rc=0 tmp_out
   tmp_out="$(mktemp)"
 
@@ -521,6 +668,10 @@ execute() {
     compose_rc=${PIPESTATUS[0]:-1}
 
     error "Docker compose failed to start (exit $compose_rc)."
+
+    local resolved_project=""
+    resolved_project="$(resolve_project_name "${compose_base_cmd[@]}")"
+    persist_project_name "$resolved_project"
 
     echo
     echo "🔍  Diagnostics summary"
@@ -563,21 +714,11 @@ execute() {
 
   rm -f "$tmp_out"
 
-  local -a cfg_cmd=("docker" "compose")
-  local j
+  local resolved_project=""
+  resolved_project="$(resolve_project_name "${compose_base_cmd[@]}")"
+  persist_project_name "$resolved_project"
 
-  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
-    if [[ "${cmd_args[j]}" == "up" ]]; then
-      break
-    fi
-    cfg_cmd+=("${cmd_args[j]}")
-  done
-
-  if ((${#profile_args_post[@]} > 0)); then
-    cfg_cmd+=("${profile_args_post[@]}")
-  fi
-
-  cfg_cmd+=(config --services)
+  local -a cfg_cmd=("${compose_base_cmd[@]}" config --services)
 
   local all_services
   all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"
