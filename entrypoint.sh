@@ -30,83 +30,6 @@ is_truthy() {
   esac
 }
 
-get_project_name_flag_from_args() {
-  local -a args=("$@")
-  local i=0
-  local project_name=""
-
-  while [[ $i -lt ${#args[@]} ]]; do
-    case "${args[$i]}" in
-      -p|--project-name)
-        if [[ $((i+1)) -lt ${#args[@]} ]]; then
-          project_name="${args[$((i+1))]}"
-          break
-        fi
-        ;;
-      --project-name=*)
-        project_name="${args[$i]#*=}"
-        break
-        ;;
-    esac
-    i=$((i+1))
-  done
-
-  if [[ -n "$project_name" ]]; then
-    echo "$project_name"
-    return 0
-  fi
-}
-
-get_project_name_from_dir() {
-  local -a args=("$@")
-  local i=0
-  local project_dir=""
-  local first_compose_file=""
-
-  while [[ $i -lt ${#args[@]} ]]; do
-    case "${args[$i]}" in
-      -f|--file)
-        if [[ -z "$first_compose_file" && $((i+1)) -lt ${#args[@]} ]]; then
-          first_compose_file="${args[$((i+1))]}"
-        fi
-        i=$((i+1))
-        ;;
-      --file=*)
-        if [[ -z "$first_compose_file" ]]; then
-          first_compose_file="${args[$i]#*=}"
-        fi
-        ;;
-      --project-directory)
-        if [[ $((i+1)) -lt ${#args[@]} ]]; then
-          project_dir="${args[$((i+1))]}"
-        fi
-        i=$((i+1))
-        ;;
-      --project-directory=*)
-        project_dir="${args[$i]#*=}"
-        ;;
-    esac
-    i=$((i+1))
-  done
-
-  local base_dir=""
-  if [[ -n "$project_dir" ]]; then
-    base_dir="$project_dir"
-  elif [[ -n "$first_compose_file" ]]; then
-    base_dir="$(dirname "$first_compose_file")"
-  fi
-
-  if [[ -n "$base_dir" ]]; then
-    if ! base_dir="$(cd "$base_dir" 2>/dev/null && pwd)"; then
-      base_dir=""
-    fi
-  fi
-
-  if [[ -n "$base_dir" ]]; then
-    echo "$(basename "$base_dir")"
-  fi
-}
-
 get_repo_basename() {
   if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
     echo "${GITHUB_REPOSITORY##*/}"
@@ -159,39 +82,23 @@ update_project_env_file() {
   fi
 }
 
-apply_compose_project_name() {
-  local -a args=("$@")
-  local auto_apply=0
-  local resolved=""
-  local from_args=""
+get_compose_project_name() {
+  local -a compose_cmd=("$@")
+  local container_id=""
 
-  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
-    auto_apply=1
-  fi
-
-  from_args="$(get_project_name_flag_from_args "${args[@]}")"
-  if [[ -n "$from_args" ]]; then
-    resolved="$from_args"
-  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
-    resolved="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
-  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
-    resolved="$COMPOSE_PROJECT_NAME"
-  elif ((auto_apply == 1)); then
-    resolved="$(get_project_name_from_dir "${args[@]}")"
-    if [[ -z "$resolved" ]]; then
-      resolved="$(get_repo_basename)"
-    fi
-  fi
-
-  if [[ -n "$resolved" ]]; then
-    export COMPOSE_PROJECT_NAME="$resolved"
-    if ((auto_apply == 1)); then
-      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved"
-    fi
+  container_id="$("${compose_cmd[@]}" ps -q 2>/dev/null | head -n 1)"
+  if [[ -n "$container_id" ]]; then
+    docker inspect "$container_id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null
   fi
 }
 
-apply_compose_project_name "$@"
+apply_explicit_project_name_input() {
+  if [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    export COMPOSE_PROJECT_NAME="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  fi
+}
+
+apply_explicit_project_name_input
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then
@@ -736,21 +643,49 @@ execute() {
 
   rm -f "$tmp_out"
 
-  local -a cfg_cmd=("docker" "compose")
+  local -a compose_base_cmd=("docker" "compose")
   local j
 
   for ((j = 2; j < ${#cmd_args[@]}; j++)); do
     if [[ "${cmd_args[j]}" == "up" ]]; then
       break
     fi
-    cfg_cmd+=("${cmd_args[j]}")
+    compose_base_cmd+=("${cmd_args[j]}")
   done
 
   if ((${#profile_args_post[@]} > 0)); then
-    cfg_cmd+=("${profile_args_post[@]}")
+    compose_base_cmd+=("${profile_args_post[@]}")
   fi
 
-  cfg_cmd+=(config --services)
+  local resolved_project=""
+  local resolved_from_compose=""
+  local auto_apply=0
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  resolved_from_compose="$(get_compose_project_name "${compose_base_cmd[@]}")"
+  if [[ -n "$resolved_from_compose" ]]; then
+    resolved_project="$resolved_from_compose"
+  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    resolved_project="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    resolved_project="$COMPOSE_PROJECT_NAME"
+  elif ((auto_apply == 1)); then
+    resolved_project="$(get_repo_basename)"
+  fi
+
+  if [[ -n "$resolved_project" ]]; then
+    if ((auto_apply == 1)) || [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" || -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+      export COMPOSE_PROJECT_NAME="$resolved_project"
+    fi
+    if ((auto_apply == 1)); then
+      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"
+    fi
+  fi
+
+  local -a cfg_cmd=("${compose_base_cmd[@]}" config --services)
 
   local all_services
   all_services="$("${cfg_cmd[@]}" 2>/dev/null || true)"

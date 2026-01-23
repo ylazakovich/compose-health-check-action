@@ -103,15 +103,15 @@ Run a custom compose command (replaces `compose-files` and `additional-compose-a
 
 ### Project name resolution
 
-When `auto-apply-project-name: true`, the action resolves `COMPOSE_PROJECT_NAME` in this order:
+When `auto-apply-project-name: true`, the action **observes the actual project name after `docker compose up`** by inspecting a created container label (`com.docker.compose.project`). This automatically respects `-p/--project-name`, `name:` in compose files, and project directory resolution handled by Docker Compose.
 
-1. `-p/--project-name` in `docker-command` (highest priority)
-2. `compose-project-name` input
-3. Existing `COMPOSE_PROJECT_NAME` environment variable
-4. Directory name of the first compose file (or `--project-directory` if provided)
-5. Repository name (`GITHUB_REPOSITORY` basename)
+If no container is found (e.g., compose didn't start anything), it falls back in this order:
 
-If `auto-apply-project-name` is `false`, only explicit values (`-p`, `compose-project-name`, or `COMPOSE_PROJECT_NAME`) are used.
+1. `compose-project-name` input
+2. Existing `COMPOSE_PROJECT_NAME` environment variable
+3. Repository name (`GITHUB_REPOSITORY` basename)
+
+If `auto-apply-project-name` is `false`, the action does not infer or write a project name; it only uses explicit values (`compose-project-name` or `COMPOSE_PROJECT_NAME`) if set.
 
 ---
 
