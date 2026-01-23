@@ -134,3 +134,58 @@ load '../helpers.bash'
     assert_success "No env file created; likely uses compose directory when containers exist."
   fi
 }
+
+@test "auto-apply uses compose file name field" {
+  export INPUT_REPORT_FORMAT="json"
+  export INPUT_COMPOSE_FILES="docker/docker-compose.named.yml"
+  export INPUT_AUTO_APPLY_PROJECT_NAME="true"
+  export HC_SKIP_PROJECT_INJECT="1"
+
+  tmpdir="$(mktemp -d)"
+  export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"
+  unset COMPOSE_PROJECT_NAME
+  unset INPUT_COMPOSE_PROJECT_NAME
+
+  run_healthcheck_action_inputs
+
+  assert_success
+  assert_json '.overall.status == "ok"'
+  run grep -E '^COMPOSE_PROJECT_NAME=customproject$' "$INPUT_PROJECT_NAME_ENV_FILE"
+  assert_success
+}
+
+@test "auto-apply false does not write explicit compose-project-name" {
+  export INPUT_REPORT_FORMAT="json"
+  export INPUT_COMPOSE_FILES="docker/docker-compose.named.yml"
+  export INPUT_COMPOSE_PROJECT_NAME="explicitname"
+  export INPUT_AUTO_APPLY_PROJECT_NAME="false"
+  export HC_SKIP_PROJECT_INJECT="1"
+
+  tmpdir="$(mktemp -d)"
+  export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"
+  unset COMPOSE_PROJECT_NAME
+
+  run_healthcheck_action_inputs
+
+  assert_success
+  assert_json '.overall.status == "ok"'
+  [[ ! -f "$INPUT_PROJECT_NAME_ENV_FILE" ]]
+}
+
+@test "auto-apply false does not write COMPOSE_PROJECT_NAME env" {
+  export INPUT_REPORT_FORMAT="json"
+  export INPUT_COMPOSE_FILES="docker/docker-compose.named.yml"
+  export INPUT_AUTO_APPLY_PROJECT_NAME="false"
+  export COMPOSE_PROJECT_NAME="envname"
+  export HC_SKIP_PROJECT_INJECT="1"
+
+  tmpdir="$(mktemp -d)"
+  export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"
+  unset INPUT_COMPOSE_PROJECT_NAME
+
+  run_healthcheck_action_inputs
+
+  assert_success
+  assert_json '.overall.status == "ok"'
+  [[ ! -f "$INPUT_PROJECT_NAME_ENV_FILE" ]]
+}
