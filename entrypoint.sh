@@ -99,7 +99,7 @@ update_project_env_file() {
     if grep -q '^COMPOSE_PROJECT_NAME=' "$file"; then
       local tmp
       tmp="$(mktemp)"
-      awk -v v="$project_name" '
+      if awk -v v="$project_name" '
         BEGIN { done=0 }
         /^COMPOSE_PROJECT_NAME=/ {
           if (!done) {
@@ -114,7 +114,12 @@ update_project_env_file() {
             print "COMPOSE_PROJECT_NAME=" v
           }
         }
-      ' "$file" >"$tmp" && mv "$tmp" "$file"
+      ' "$file" >"$tmp"; then
+        mv "$tmp" "$file"
+      else
+        rm -f "$tmp"
+        return 1
+      fi
     else
       printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$project_name" >>"$file"
     fi
