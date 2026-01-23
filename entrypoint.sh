@@ -285,6 +285,12 @@ collect_compose_failed_targets() {
             docker_health_add_unhealthy_target "$service" "$cid"
           fi
           ;;
+        running)
+          health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$cid" 2>/dev/null || echo "")"
+          if [[ "$health" == "unhealthy" ]]; then
+            docker_health_add_unhealthy_target "$service" "$cid"
+          fi
+          ;;
         *)
           ;;
       esac
