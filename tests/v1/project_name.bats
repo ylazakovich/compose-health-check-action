@@ -66,9 +66,9 @@ load '../helpers.bash'
 @test "fallback prefers compose-project-name when no containers" {
   export INPUT_REPORT_FORMAT="json"
   export INPUT_COMPOSE_FILES="docker/docker-compose.profiles.yml"
-  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale web=0"
+  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale=web=0"
   export INPUT_TIMEOUT="0"
-  export INPUT_COMPOSE_SERVICES="web"
+  unset INPUT_COMPOSE_SERVICES
   export INPUT_COMPOSE_PROJECT_NAME="explicitname"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
   export COMPOSE_PROJECT_NAME="envname"
