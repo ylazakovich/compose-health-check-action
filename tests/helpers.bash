@@ -168,8 +168,10 @@ run_healthcheck_action_inputs() {
   local compose_files_input="${INPUT_COMPOSE_FILES:-}"
   local additional_args_input="${INPUT_ADDITIONAL_COMPOSE_ARGS:-}"
   local services_input="${INPUT_SERVICES:-}"
+  local compose_services_input="${INPUT_COMPOSE_SERVICES:-}"
   local report_format_input="${INPUT_REPORT_FORMAT:-json}"
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
+  local compose_profiles_input="${INPUT_COMPOSE_PROFILES:-}"
 
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
   export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
@@ -192,6 +194,10 @@ sys.stdout.write("\0".join(parts) + "\0")
 PY
   }
 
+  if [[ -n "$compose_services_input" ]]; then
+    services_input="$compose_services_input"
+  fi
+
   if [[ -n "$docker_command_input" ]]; then
     unset DOCKER_SERVICES_LIST
     mapfile -d '' -t cmd < <(parse_docker_command)
@@ -208,6 +214,14 @@ PY
         cmd+=(-f "$file")
       fi
     done <<<"$compose_files_input"
+
+    if [[ -n "$compose_profiles_input" ]]; then
+      read -r -a profile_arr <<<"$(tr '\n' ' ' <<<"$compose_profiles_input")"
+      for profile in "${profile_arr[@]}"; do
+        [[ -n "$profile" ]] || continue
+        cmd+=(--profile "$profile")
+      done
+    fi
 
     cmd+=(up -d)
 

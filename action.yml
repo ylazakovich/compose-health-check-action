@@ -12,8 +12,12 @@ inputs:
     required: true
     default: |
       docker-compose.yml
-  services:
+  compose-services:
     description: "List of services to check (space-separated). Defaults to all services when omitted; ignored when docker-command is set."
+    required: false
+    default: ""
+  services:
+    description: "DEPRECATED: use compose-services."
     required: false
     default: ""
   timeout:
@@ -26,6 +30,10 @@ inputs:
     default: "25"
   additional-compose-args:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
+    required: false
+    default: ""
+  compose-profiles:
+    description: "One or more compose profiles (space or newline separated). Ignored when docker-command is set."
     required: false
     default: ""
   docker-command:
@@ -54,7 +62,7 @@ runs:
       env:
         DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
         DOCKER_HEALTH_LOG_LINES: ${{ inputs.log-lines }}
-        DOCKER_SERVICES_LIST: ${{ inputs.services }}
+        DOCKER_SERVICES_LIST: ${{ inputs.compose-services }}
         DOCKER_HEALTH_REPORT_FORMAT: ${{ inputs.report-format }}
       run: |
         set -euo pipefail
@@ -63,9 +71,19 @@ runs:
 
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
+        compose_services_input="${{ inputs.compose-services }}"
         services_input="${{ inputs.services }}"
         report_format_input="${{ inputs.report-format }}"
         docker_command_input="${{ inputs.docker-command }}"
+        compose_profiles_input="${{ inputs.compose-profiles }}"
+
+        if [[ -n "$compose_services_input" ]]; then
+          services_input="$compose_services_input"
+        fi
+
+        if [[ -n "$services_input" ]]; then
+          export DOCKER_SERVICES_LIST="$services_input"
+        fi
 
         if [[ -n "$docker_command_input" ]]; then
           unset DOCKER_SERVICES_LIST
@@ -101,17 +119,25 @@ runs:
             fi
           done <<<"$compose_files_input"
 
-        CMD+=(up -d)
+          if [[ -n "$compose_profiles_input" ]]; then
+            read -r -a profile_arr <<<"$(tr '\n' ' ' <<<"$compose_profiles_input")"
+            for profile in "${profile_arr[@]}"; do
+              [[ -n "$profile" ]] || continue
+              CMD+=(--profile "$profile")
+            done
+          fi
 
-        if [[ -n "$additional_args_input" ]]; then
-          read -r -a extra_args <<<"$additional_args_input"
-          CMD+=("${extra_args[@]}")
-        fi
+          CMD+=(up -d)
 
-        if [[ -n "$services_input" ]]; then
-          read -r -a svc_arr <<<"$services_input"
-          CMD+=("${svc_arr[@]}")
-        fi
+          if [[ -n "$additional_args_input" ]]; then
+            read -r -a extra_args <<<"$additional_args_input"
+            CMD+=("${extra_args[@]}")
+          fi
+
+          if [[ -n "$services_input" ]]; then
+            read -r -a svc_arr <<<"$services_input"
+            CMD+=("${svc_arr[@]}")
+          fi
         fi
 
         TMP_OUT="$(mktemp)"
