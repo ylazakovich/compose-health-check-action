@@ -1,6 +1,6 @@
 ## v2.2.0 - SNAPSHOT
 
-## v2.1.1 (23.01.2026)
+## v2.1.1 PRE-RELEASE
 
 - Fixed `compose-services` input wiring to avoid unbound variable errors in GitHub Actions.
 
