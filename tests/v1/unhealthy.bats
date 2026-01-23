@@ -35,18 +35,18 @@ load '../helpers.bash'
 
   local probe_count
   probe_count="$(printf '%s\n' "$HC_STDOUT" | awk '
-/^    Last 3 health probe outputs:/ {in=1; next}
-in && /^    Last [0-9]+ container log lines:/ {in=0}
-in { if ($0 ~ /^      /) c++ }
+/^    Last 3 health probe outputs:/ {inside=1; next}
+inside && /^    Last [0-9]+ container log lines:/ {inside=0}
+inside { if ($0 ~ /^      /) c++ }
 END { print c+0 }
 ')"
   assert_equal "$probe_count" "3"
 
   local container_count
   container_count="$(printf '%s\n' "$HC_STDOUT" | awk '
-/^    Last 3 container log lines:/ {in=1; next}
-in && /^$/ {in=0}
-in { if ($0 ~ /^      /) c++ }
+/^    Last 3 container log lines:/ {inside=1; next}
+inside && /^$/ {inside=0}
+inside { if ($0 ~ /^      /) c++ }
 END { print c+0 }
 ')"
   assert_equal "$container_count" "3"
