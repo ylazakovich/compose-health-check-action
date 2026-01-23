@@ -87,8 +87,7 @@ load '../helpers.bash'
 @test "fallback uses COMPOSE_PROJECT_NAME when no containers and no input" {
   export INPUT_REPORT_FORMAT="json"
   export INPUT_COMPOSE_FILES="docker/docker-compose.profiles.yml"
-  export INPUT_COMPOSE_PROFILES="default extra"
-  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale web=0 --scale worker=0 --scale sidecar=0"
+  export INPUT_ADDITIONAL_COMPOSE_ARGS="--scale web=0"
   export INPUT_TIMEOUT="0"
   export INPUT_COMPOSE_SERVICES="web"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
