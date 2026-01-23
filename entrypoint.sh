@@ -129,7 +129,12 @@ get_compose_project_name() {
 
   container_id="$("${compose_cmd[@]}" ps -q 2>/dev/null | head -n 1 || true)"
   if [[ -n "$container_id" ]]; then
-    docker inspect "$container_id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null
+    local project_label
+    project_label="$(docker inspect "$container_id" --format '{{ index .Config.Labels "com.docker.compose.project" }}' 2>/dev/null || true)"
+    if [[ -z "$project_label" ]]; then
+      debug "Container $container_id found but com.docker.compose.project label is missing"
+    fi
+    echo "$project_label"
   fi
 }
 
