@@ -23,7 +23,7 @@ inputs:
   log-lines:
     description: "Number of healthcheck/container log lines to show on failure"
     required: false
-    default: "50"
+    default: "25"
   additional-compose-args:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
     required: false
