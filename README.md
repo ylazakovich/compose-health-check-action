@@ -19,6 +19,12 @@
 ```yaml
 - uses: ylazakovich/compose-health-check-action@v2
   with:
+    docker-command: docker compose -f docker-compose.yml up
+```
+
+```yaml
+- uses: ylazakovich/compose-health-check-action@v2
+  with:
     compose-files: |
       docker-compose.yml
     services: |
@@ -58,6 +64,7 @@ pass or fail CI
 | `compose-files`           | no       | One or more docker-compose files (default: `docker-compose.yml`, used when `docker-command` is empty) |
 | `services`                | no       | Services to check (defaults to all services when omitted; ignored when `docker-command` is set)       |
 | `timeout`                 | no       | Timeout per service in seconds (default: 120)                                                         |
+| `log-lines`               | no       | Number of healthcheck/container log lines to show on failure (default: 25)                            |
 | `additional-compose-args` | no       | Additional args for docker compose (e.g. `--quiet-pull` or `--build`)                                 |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
 | `docker-command`          | no       | Full `docker compose` command to run instead of `compose-files`                                       |
@@ -74,6 +81,7 @@ Example:
       db 
       api
     timeout: 60
+    log-lines: 50
 ```
 
 Run a custom compose command (replaces `compose-files` and `additional-compose-args`):
