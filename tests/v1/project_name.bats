@@ -126,7 +126,7 @@ load '../helpers.bash'
   run_healthcheck_action_inputs
 
   assert_failure
-  expected_repo="$(basename "$HC_REPO_ROOT")"
+  expected_repo="compose-health-check-action"
   run grep -E "^COMPOSE_PROJECT_NAME=${expected_repo}$" "$INPUT_PROJECT_NAME_ENV_FILE"
   assert_success
 }
