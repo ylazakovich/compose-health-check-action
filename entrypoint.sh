@@ -485,7 +485,7 @@ execute() {
       [[ "$token" == "--" ]] && break
       case "$token" in
         --profile)
-          if ((i + 1 < ${#cmd_args[@]})); then
+          if ((i + 1 < ${#cmd_args[@]})) && [[ "${cmd_args[i + 1]}" != -* ]]; then
             profile_args_post+=(--profile "${cmd_args[i + 1]}")
             i=$((i + 1))
           fi
@@ -496,7 +496,7 @@ execute() {
           continue
           ;;
         -p)
-          if ((i + 1 < ${#cmd_args[@]})); then
+          if ((i + 1 < ${#cmd_args[@]})) && [[ "${cmd_args[i + 1]}" != -* ]]; then
             profile_args_post+=(-p "${cmd_args[i + 1]}")
             i=$((i + 1))
           fi
