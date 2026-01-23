@@ -10,6 +10,7 @@ load '../helpers.bash'
   export INPUT_COMPOSE_PROFILES="default extra"
   export INPUT_ADDITIONAL_COMPOSE_ARGS="--quiet-pull"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
+  export HC_SKIP_PROJECT_INJECT="1"
 
   tmpdir="$(mktemp -d)"
   export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"
@@ -30,6 +31,7 @@ load '../helpers.bash'
   export INPUT_ADDITIONAL_COMPOSE_ARGS="--quiet-pull"
   export INPUT_COMPOSE_PROJECT_NAME="explicitname"
   export INPUT_AUTO_APPLY_PROJECT_NAME="true"
+  export HC_SKIP_PROJECT_INJECT="1"
 
   tmpdir="$(mktemp -d)"
   export INPUT_PROJECT_NAME_ENV_FILE="${tmpdir}/system.env"
