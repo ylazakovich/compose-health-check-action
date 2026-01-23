@@ -30,27 +30,27 @@ load '../helpers.bash'
   run_healthcheck_action_sh docker compose -f docker/docker-compose.unhealthy.yml up -d slow-broken
 
   assert_failure
-  assert_output --partial "Last 3 health probe outputs"
-  assert_output --partial "Last 3 container log lines"
+  assert_output --partial "Last ${DOCKER_HEALTH_LOG_LINES} health probe outputs"
+  assert_output --partial "Last ${DOCKER_HEALTH_LOG_LINES} container log lines"
 
   local probe_count
-  probe_count="$(printf '%s\n' "$HC_STDOUT" | awk '
-/^    Last 3 health probe outputs:/ {inside=1; next}
-inside && /^    Last [0-9]+ container log lines:/ {inside=0}
-inside { if ($0 ~ /^      /) c++ }
+  probe_count="$(printf '%s\n' "$HC_STDOUT" | awk -v lines="${DOCKER_HEALTH_LOG_LINES}" '
+$0 ~ "Last " lines " health probe outputs:" {in=1; next}
+in && /^    Last [0-9]+ container log lines:/ {in=0}
+in { if ($0 ~ /^      /) c++ }
 END { print c+0 }
 ')"
-  assert_equal "$probe_count" "3"
+  assert_equal "$probe_count" "${DOCKER_HEALTH_LOG_LINES}"
 
   local container_count
-  container_count="$(printf '%s\n' "$HC_STDOUT" | awk '
-/^    Last 3 container log lines:/ {inside=1; next}
-inside && /^$/ {inside=0}
-inside { if ($0 ~ /^      /) c++ }
+  container_count="$(printf '%s\n' "$HC_STDOUT" | awk -v lines="${DOCKER_HEALTH_LOG_LINES}" '
+$0 ~ "Last " lines " container log lines:" {in=1; next}
+in && /^$/ {in=0}
+in { if ($0 ~ /^      /) c++ }
 END { print c+0 }
 ')"
-  # Container logs may have fewer lines than requested depending on service output.
-  if (( container_count < 1 || container_count > 3 )); then
+  assert_equal "$container_count" "${DOCKER_HEALTH_LOG_LINES}"
+}
     echo "Expected 1..3 container log lines, got $container_count"
     return 1
   fi
