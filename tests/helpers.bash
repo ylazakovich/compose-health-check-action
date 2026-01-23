@@ -173,6 +173,9 @@ run_healthcheck_action_inputs() {
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
   local compose_profiles_input="${INPUT_COMPOSE_PROFILES:-}"
 
+  local repo_root
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
+
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
   export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
   export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
