@@ -70,6 +70,9 @@ pass or fail CI
 | `log-lines`               | no       | Number of healthcheck/container log lines to show on failure (default: 25)                            |
 | `report-format`           | no       | Healthcheck report format: `text`/`json`/`both` (default: `text`)                                     |
 | `docker-command`          | no       | Full `docker compose` command                                                                         |
+| `compose-project-name`    | no       | Explicit docker compose project name (overridden by `-p/--project-name` in `docker-command`)         |
+| `auto-apply-project-name` | no       | When `true`, resolve and export `COMPOSE_PROJECT_NAME` and write it to `project-name-env-file`       |
+| `project-name-env-file`   | no       | Env file path to write `COMPOSE_PROJECT_NAME` (default: `system.env`)                                |
 
 Example:
 
@@ -86,6 +89,8 @@ Example:
       default
     timeout: 60
     log-lines: 50
+    auto-apply-project-name: true
+    project-name-env-file: system.env
 ```
 
 Run a custom compose command (replaces `compose-files` and `additional-compose-args`):
@@ -95,6 +100,18 @@ Run a custom compose command (replaces `compose-files` and `additional-compose-a
   with:
     docker-command: docker compose -f docker-compose.yml -f docker-compose.override.yml up -d api
 ```
+
+### Project name resolution
+
+When `auto-apply-project-name: true`, the action resolves `COMPOSE_PROJECT_NAME` in this order:
+
+1. `-p/--project-name` in `docker-command` (highest priority)
+2. `compose-project-name` input
+3. Existing `COMPOSE_PROJECT_NAME` environment variable
+4. Directory name of the first compose file (or `--project-directory` if provided)
+5. Repository name (`GITHUB_REPOSITORY` basename)
+
+If `auto-apply-project-name` is `false`, only explicit values (`-p`, `compose-project-name`, or `COMPOSE_PROJECT_NAME`) are used.
 
 ---
 

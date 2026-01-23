@@ -6,6 +6,9 @@ source "$SCRIPT_DIR/lib/logging.sh"
 
 DOCKER_HEALTH_TIMEOUT="${DOCKER_HEALTH_TIMEOUT:-120}"
 DOCKER_HEALTH_LOG_LINES="${DOCKER_HEALTH_LOG_LINES:-25}"
+DOCKER_HEALTH_PROJECT_NAME_INPUT="${DOCKER_HEALTH_PROJECT_NAME_INPUT:-}"
+DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME="${DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME:-}"
+DOCKER_HEALTH_PROJECT_ENV_FILE="${DOCKER_HEALTH_PROJECT_ENV_FILE:-system.env}"
 
 # Report format: text | json | both
 DOCKER_HEALTH_REPORT_FORMAT="${DOCKER_HEALTH_REPORT_FORMAT:-text}"
@@ -19,6 +22,176 @@ case "${DOCKER_HEALTH_REPORT_FORMAT}" in
     exit 1
     ;;
 esac
+
+is_truthy() {
+  case "${1:-}" in
+    1 | true | TRUE | yes | YES | on | ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+get_project_name_flag_from_args() {
+  local -a args=("$@")
+  local i=0
+  local project_name=""
+
+  while [[ $i -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+      -p|--project-name)
+        if [[ $((i+1)) -lt ${#args[@]} ]]; then
+          project_name="${args[$((i+1))]}"
+          break
+        fi
+        ;;
+      --project-name=*)
+        project_name="${args[$i]#*=}"
+        break
+        ;;
+    esac
+    i=$((i+1))
+  done
+
+  if [[ -n "$project_name" ]]; then
+    echo "$project_name"
+    return 0
+  fi
+}
+
+get_project_name_from_dir() {
+  local -a args=("$@")
+  local i=0
+  local project_dir=""
+  local first_compose_file=""
+
+  while [[ $i -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+      -f|--file)
+        if [[ -z "$first_compose_file" && $((i+1)) -lt ${#args[@]} ]]; then
+          first_compose_file="${args[$((i+1))]}"
+        fi
+        i=$((i+1))
+        ;;
+      --file=*)
+        if [[ -z "$first_compose_file" ]]; then
+          first_compose_file="${args[$i]#*=}"
+        fi
+        ;;
+      --project-directory)
+        if [[ $((i+1)) -lt ${#args[@]} ]]; then
+          project_dir="${args[$((i+1))]}"
+        fi
+        i=$((i+1))
+        ;;
+      --project-directory=*)
+        project_dir="${args[$i]#*=}"
+        ;;
+    esac
+    i=$((i+1))
+  done
+
+  local base_dir=""
+  if [[ -n "$project_dir" ]]; then
+    base_dir="$project_dir"
+  elif [[ -n "$first_compose_file" ]]; then
+    base_dir="$(dirname "$first_compose_file")"
+  fi
+
+  if [[ -n "$base_dir" ]]; then
+    if ! base_dir="$(cd "$base_dir" 2>/dev/null && pwd)"; then
+      base_dir=""
+    fi
+  fi
+
+  if [[ -n "$base_dir" ]]; then
+    echo "$(basename "$base_dir")"
+  fi
+}
+
+get_repo_basename() {
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    echo "${GITHUB_REPOSITORY##*/}"
+    return 0
+  fi
+  basename "$(pwd)"
+}
+
+update_project_env_file() {
+  local file="$1"
+  local project_name="$2"
+
+  [[ -n "$file" ]] || return 0
+
+  local dir
+  dir="$(dirname "$file")"
+  if [[ "$dir" != "." ]]; then
+    mkdir -p "$dir" 2>/dev/null || true
+  fi
+
+  if [[ -f "$file" ]]; then
+    if grep -q '^COMPOSE_PROJECT_NAME=' "$file"; then
+      local tmp
+      tmp="$(mktemp)"
+      awk -v v="$project_name" '
+        BEGIN { done=0 }
+        /^COMPOSE_PROJECT_NAME=/ {
+          if (!done) {
+            print "COMPOSE_PROJECT_NAME=" v
+            done=1
+            next
+          }
+        }
+        { print }
+        END {
+          if (!done) {
+            print "COMPOSE_PROJECT_NAME=" v
+          }
+        }
+      ' "$file" >"$tmp" && mv "$tmp" "$file"
+    else
+      printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$project_name" >>"$file" 2>/dev/null || true
+    fi
+  else
+    printf 'COMPOSE_PROJECT_NAME=%s\n' "$project_name" >"$file" 2>/dev/null || true
+  fi
+
+  if ! grep -q '^COMPOSE_PROJECT_NAME=' "$file" 2>/dev/null; then
+    warning "Unable to write COMPOSE_PROJECT_NAME to ${file}."
+  fi
+}
+
+apply_compose_project_name() {
+  local -a args=("$@")
+  local auto_apply=0
+  local resolved=""
+  local from_args=""
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  from_args="$(get_project_name_flag_from_args "${args[@]}")"
+  if [[ -n "$from_args" ]]; then
+    resolved="$from_args"
+  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    resolved="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    resolved="$COMPOSE_PROJECT_NAME"
+  elif ((auto_apply == 1)); then
+    resolved="$(get_project_name_from_dir "${args[@]}")"
+    if [[ -z "$resolved" ]]; then
+      resolved="$(get_repo_basename)"
+    fi
+  fi
+
+  if [[ -n "$resolved" ]]; then
+    export COMPOSE_PROJECT_NAME="$resolved"
+    if ((auto_apply == 1)); then
+      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved"
+    fi
+  fi
+}
+
+apply_compose_project_name "$@"
 
 HOST_PLATFORM="$(docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null || true)"
 if [[ -n "${HOST_PLATFORM}" ]]; then

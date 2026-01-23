@@ -172,6 +172,9 @@ run_healthcheck_action_inputs() {
   local report_format_input="${INPUT_REPORT_FORMAT:-json}"
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
   local compose_profiles_input="${INPUT_COMPOSE_PROFILES:-}"
+  local compose_project_name_input="${INPUT_COMPOSE_PROJECT_NAME:-}"
+  local auto_apply_project_name_input="${INPUT_AUTO_APPLY_PROJECT_NAME:-}"
+  local project_name_env_file_input="${INPUT_PROJECT_NAME_ENV_FILE:-}"
 
   local repo_root
   repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
@@ -179,6 +182,9 @@ run_healthcheck_action_inputs() {
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
   export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
   export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
+  export DOCKER_HEALTH_PROJECT_NAME_INPUT="${compose_project_name_input}"
+  export DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME="${auto_apply_project_name_input}"
+  export DOCKER_HEALTH_PROJECT_ENV_FILE="${project_name_env_file_input:-system.env}"
 
   local -a cmd=()
 
