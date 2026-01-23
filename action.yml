@@ -87,11 +87,12 @@ runs:
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
         services_input="${{ inputs.services }}"
+        compose_services_input="${{ inputs.compose-services }}"
         report_format_input="${{ inputs.report-format }}"
         docker_command_input="${{ inputs.docker-command }}"
         compose_profiles_input="${{ inputs.compose-profiles }}"
 
-        services_to_use="${{ inputs.compose-services }}"
+        services_to_use="$compose_services_input"
         if [[ -z "$services_to_use" ]]; then
           services_to_use="$services_input"
         fi
