@@ -71,18 +71,18 @@ runs:
 
         compose_files_input="${{ inputs.compose-files }}"
         additional_args_input="${{ inputs.additional-compose-args }}"
-        compose_services_input="${{ inputs.compose-services }}"
         services_input="${{ inputs.services }}"
         report_format_input="${{ inputs.report-format }}"
         docker_command_input="${{ inputs.docker-command }}"
         compose_profiles_input="${{ inputs.compose-profiles }}"
 
-        if [[ -n "$compose_services_input" ]]; then
-          services_input="$compose_services_input"
+        services_to_use="${{ inputs.compose-services }}"
+        if [[ -z "$services_to_use" ]]; then
+          services_to_use="$services_input"
         fi
 
-        if [[ -n "$services_input" ]]; then
-          export DOCKER_SERVICES_LIST="$services_input"
+        if [[ -n "$services_to_use" ]]; then
+          export DOCKER_SERVICES_LIST="$services_to_use"
         fi
 
         if [[ -n "$docker_command_input" ]]; then
