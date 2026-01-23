@@ -38,6 +38,48 @@ get_repo_basename() {
   basename "$(pwd)"
 }
 
+resolve_project_name() {
+  local -a compose_cmd=("$@")
+  local resolved_project=""
+  local resolved_from_compose=""
+  local auto_apply=0
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  resolved_from_compose="$(get_compose_project_name "${compose_cmd[@]}")"
+  if [[ -n "$resolved_from_compose" ]]; then
+    resolved_project="$resolved_from_compose"
+  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
+    resolved_project="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
+  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    resolved_project="$COMPOSE_PROJECT_NAME"
+  elif ((auto_apply == 1)); then
+    resolved_project="$(get_repo_basename)"
+  fi
+
+  echo "$resolved_project"
+}
+
+persist_project_name() {
+  local resolved_project="$1"
+  local auto_apply=0
+
+  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
+    auto_apply=1
+  fi
+
+  if [[ -n "$resolved_project" ]]; then
+    if ((auto_apply == 1)) || [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" || -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+      export COMPOSE_PROJECT_NAME="$resolved_project"
+    fi
+    if ((auto_apply == 1)); then
+      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"
+    fi
+  fi
+}
+
 update_project_env_file() {
   local file="$1"
   local project_name="$2"
@@ -590,6 +632,20 @@ execute() {
     DOCKER_SERVICES_LIST="${services_from_cmd[*]}"
   fi
 
+  local -a compose_base_cmd=("docker" "compose")
+  local j
+
+  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
+    if [[ "${cmd_args[j]}" == "up" ]]; then
+      break
+    fi
+    compose_base_cmd+=("${cmd_args[j]}")
+  done
+
+  if ((${#profile_args_post[@]} > 0)); then
+    compose_base_cmd+=("${profile_args_post[@]}")
+  fi
+
   local compose_rc=0 tmp_out
   tmp_out="$(mktemp)"
 
@@ -597,6 +653,10 @@ execute() {
     compose_rc=${PIPESTATUS[0]:-1}
 
     error "Docker compose failed to start (exit $compose_rc)."
+
+    local resolved_project=""
+    resolved_project="$(resolve_project_name "${compose_base_cmd[@]}")"
+    persist_project_name "$resolved_project"
 
     echo
     echo "🔍  Diagnostics summary"
@@ -639,47 +699,9 @@ execute() {
 
   rm -f "$tmp_out"
 
-  local -a compose_base_cmd=("docker" "compose")
-  local j
-
-  for ((j = 2; j < ${#cmd_args[@]}; j++)); do
-    if [[ "${cmd_args[j]}" == "up" ]]; then
-      break
-    fi
-    compose_base_cmd+=("${cmd_args[j]}")
-  done
-
-  if ((${#profile_args_post[@]} > 0)); then
-    compose_base_cmd+=("${profile_args_post[@]}")
-  fi
-
   local resolved_project=""
-  local resolved_from_compose=""
-  local auto_apply=0
-
-  if is_truthy "$DOCKER_HEALTH_AUTO_APPLY_PROJECT_NAME"; then
-    auto_apply=1
-  fi
-
-  resolved_from_compose="$(get_compose_project_name "${compose_base_cmd[@]}")"
-  if [[ -n "$resolved_from_compose" ]]; then
-    resolved_project="$resolved_from_compose"
-  elif [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" ]]; then
-    resolved_project="$DOCKER_HEALTH_PROJECT_NAME_INPUT"
-  elif [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
-    resolved_project="$COMPOSE_PROJECT_NAME"
-  elif ((auto_apply == 1)); then
-    resolved_project="$(get_repo_basename)"
-  fi
-
-  if [[ -n "$resolved_project" ]]; then
-    if ((auto_apply == 1)) || [[ -n "$DOCKER_HEALTH_PROJECT_NAME_INPUT" || -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
-      export COMPOSE_PROJECT_NAME="$resolved_project"
-    fi
-    if ((auto_apply == 1)); then
-      update_project_env_file "$DOCKER_HEALTH_PROJECT_ENV_FILE" "$resolved_project"
-    fi
-  fi
+  resolved_project="$(resolve_project_name "${compose_base_cmd[@]}")"
+  persist_project_name "$resolved_project"
 
   local -a cfg_cmd=("${compose_base_cmd[@]}" config --services)
 
