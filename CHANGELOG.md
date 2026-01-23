@@ -5,6 +5,8 @@
 - Added `compose-services` (new) and deprecated `services` input
 - Added `compose-profiles` input to pass compose profiles in input-based mode
 - Reused compose command builder across action and tests to avoid drift
+- Added project name inputs (`compose-project-name`, `auto-apply-project-name`, `project-name-env-file`)
+- Auto-detect project name from running compose containers and persist to env file
 
 ## v2.0.0 (18.01.2026)
 
