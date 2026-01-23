@@ -172,6 +172,7 @@ run_healthcheck_action_inputs() {
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
 
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
+  export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
   export DOCKER_HEALTH_REPORT_FORMAT="${report_format_input}"
 
   local -a cmd=()

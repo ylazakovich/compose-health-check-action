@@ -20,6 +20,10 @@ inputs:
     description: "Healthcheck timeout per service in seconds"
     required: false
     default: "120"
+  log-lines:
+    description: "Number of healthcheck/container log lines to show on failure"
+    required: false
+    default: "25"
   additional-compose-args:
     description: "Additional args for docker compose (e.g. --quiet-pull or --build)"
     required: false
@@ -49,6 +53,7 @@ runs:
       shell: bash
       env:
         DOCKER_HEALTH_TIMEOUT: ${{ inputs.timeout }}
+        DOCKER_HEALTH_LOG_LINES: ${{ inputs.log-lines }}
         DOCKER_SERVICES_LIST: ${{ inputs.services }}
         DOCKER_HEALTH_REPORT_FORMAT: ${{ inputs.report-format }}
       run: |

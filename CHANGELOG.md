@@ -1,5 +1,8 @@
 ## v2.1.0 - SNAPSHOT
 
+- Added `log-lines` input to control diagnostics output length
+- Added Bats coverage for `log-lines` in v1/v2 flows
+
 ## v2.0.0 (18.01.2026)
 
 - Added `docker-command` input to run a custom `docker compose` command
