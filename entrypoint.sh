@@ -468,6 +468,7 @@ execute() {
   local -a cmd_args=("$@")
 
   local -a services_from_cmd=()
+  local -a profile_args_post=()
   local i token
   local up_index=-1
 
@@ -482,6 +483,26 @@ execute() {
     for ((i = up_index + 1; i < ${#cmd_args[@]}; i++)); do
       token="${cmd_args[i]}"
       [[ "$token" == "--" ]] && break
+      case "$token" in
+        --profile)
+          if ((i + 1 < ${#cmd_args[@]})) && [[ "${cmd_args[i + 1]}" != -* ]]; then
+            profile_args_post+=(--profile "${cmd_args[i + 1]}")
+            i=$((i + 1))
+          fi
+          continue
+          ;;
+        --profile=*)
+          profile_args_post+=(--profile "${token#--profile=}")
+          continue
+          ;;
+        -p)
+          if ((i + 1 < ${#cmd_args[@]})) && [[ "${cmd_args[i + 1]}" != -* ]]; then
+            profile_args_post+=(-p "${cmd_args[i + 1]}")
+            i=$((i + 1))
+          fi
+          continue
+          ;;
+      esac
       if [[ "$token" == -* ]]; then
         continue
       fi
@@ -551,6 +572,10 @@ execute() {
     fi
     cfg_cmd+=("${cmd_args[j]}")
   done
+
+  if ((${#profile_args_post[@]} > 0)); then
+    cfg_cmd+=("${profile_args_post[@]}")
+  fi
 
   cfg_cmd+=(config --services)
 

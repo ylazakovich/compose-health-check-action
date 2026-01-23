@@ -168,8 +168,13 @@ run_healthcheck_action_inputs() {
   local compose_files_input="${INPUT_COMPOSE_FILES:-}"
   local additional_args_input="${INPUT_ADDITIONAL_COMPOSE_ARGS:-}"
   local services_input="${INPUT_SERVICES:-}"
+  local compose_services_input="${INPUT_COMPOSE_SERVICES:-}"
   local report_format_input="${INPUT_REPORT_FORMAT:-json}"
   local docker_command_input="${INPUT_DOCKER_COMMAND:-}"
+  local compose_profiles_input="${INPUT_COMPOSE_PROFILES:-}"
+
+  local repo_root
+  repo_root="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
 
   export DOCKER_HEALTH_TIMEOUT="${INPUT_TIMEOUT:-${DOCKER_HEALTH_TIMEOUT:-120}}"
   export DOCKER_HEALTH_LOG_LINES="${INPUT_LOG_LINES:-${DOCKER_HEALTH_LOG_LINES:-25}}"
@@ -177,52 +182,27 @@ run_healthcheck_action_inputs() {
 
   local -a cmd=()
 
-  parse_docker_command() {
-    if ! command -v python3 >/dev/null 2>&1; then
-      echo "python3 is required to parse docker-command safely." >&2
-      return 1
-    fi
-    python3 - <<'PY' "$docker_command_input"
-import shlex
-import sys
+  if [[ -n "$compose_services_input" ]]; then
+    services_input="$compose_services_input"
+  fi
 
-cmd = sys.argv[1]
-parts = shlex.split(cmd)
-sys.stdout.write("\0".join(parts) + "\0")
-PY
-  }
+  if [[ -n "$services_input" ]]; then
+    export DOCKER_SERVICES_LIST="${services_input}"
+  fi
 
   if [[ -n "$docker_command_input" ]]; then
     unset DOCKER_SERVICES_LIST
-    mapfile -d '' -t cmd < <(parse_docker_command)
-    if ((${#cmd[@]} < 2)) || [[ "${cmd[0]}" != "docker" || "${cmd[1]}" != "compose" ]]; then
-      echo "docker-command must start with 'docker compose'." >&2
-      return 1
-    fi
-  else
-    export DOCKER_SERVICES_LIST="${services_input}"
-    cmd=(docker compose)
-
-    while IFS= read -r file; do
-      if [[ -n "$file" ]]; then
-        cmd+=(-f "$file")
-      fi
-    done <<<"$compose_files_input"
-
-    cmd+=(up -d)
-
-    if [[ -n "$additional_args_input" ]]; then
-      local -a extra_args
-      read -r -a extra_args <<<"$additional_args_input"
-      cmd+=("${extra_args[@]}")
-    fi
-
-    if [[ -n "$services_input" ]]; then
-      local -a svc_arr
-      read -r -a svc_arr <<<"$services_input"
-      cmd+=("${svc_arr[@]}")
-    fi
   fi
+
+  mapfile -d '' -t cmd < <(
+    COMPOSE_FILES_INPUT="$compose_files_input" \
+    ADDITIONAL_COMPOSE_ARGS_INPUT="$additional_args_input" \
+    COMPOSE_SERVICES_INPUT="$compose_services_input" \
+    SERVICES_INPUT="$services_input" \
+    COMPOSE_PROFILES_INPUT="$compose_profiles_input" \
+    DOCKER_COMMAND_INPUT="$docker_command_input" \
+    bash "$repo_root/lib/build-compose-command.sh"
+  )
 
   run_healthcheck_action_sh "${cmd[@]}"
 }

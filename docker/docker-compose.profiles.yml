@@ -1,0 +1,50 @@
+services:
+  web:
+    image: busybox:1.37
+    stop_grace_period: 1s
+    command: >
+      sh -c "
+        echo 'web started';
+        touch /tmp/web_ready;
+        exec tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/web_ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
+      start_period: 0s
+
+  worker:
+    image: busybox:1.37
+    stop_grace_period: 1s
+    profiles: ["default"]
+    command: >
+      sh -c "
+        echo 'worker started';
+        touch /tmp/worker_ready;
+        exec tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/worker_ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
+      start_period: 0s
+
+  sidecar:
+    image: busybox:1.37
+    stop_grace_period: 1s
+    profiles: ["extra"]
+    command: >
+      sh -c "
+        echo 'sidecar started';
+        touch /tmp/sidecar_ready;
+        exec tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/sidecar_ready"]
+      interval: 200ms
+      timeout: 200ms
+      retries: 20
+      start_period: 0s

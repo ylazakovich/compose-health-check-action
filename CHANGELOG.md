@@ -2,6 +2,9 @@
 
 - Added `log-lines` input to control diagnostics output length
 - Added Bats coverage for `log-lines` in v1/v2 flows
+- Added `compose-services` (new) and deprecated `services` input
+- Added `compose-profiles` input to pass compose profiles in input-based mode
+- Reused compose command builder across action and tests to avoid drift
 
 ## v2.0.0 (18.01.2026)
 
