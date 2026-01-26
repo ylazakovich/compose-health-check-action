@@ -1,5 +1,7 @@
 ## v2.2.0 - SNAPSHOT
 
+- When `docker compose up` fails but a container exits with non-zero, treat it as unhealthy and print health/log diagnostics.
+
 ## v2.1.1 (23.01.2026)
 
 - Fixed `compose-services` input wiring to avoid unbound variable errors in GitHub Actions.
