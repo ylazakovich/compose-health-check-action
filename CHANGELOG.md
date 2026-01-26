@@ -1,4 +1,6 @@
-## v2.2.0 - SNAPSHOT
+## v2.3.0.SNAPSHOT
+
+## v2.2.0 (27.01.2026)
 
 - When `docker compose up` fails but a container exits with non-zero, treat it as unhealthy and print health/log diagnostics.
 
