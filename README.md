@@ -199,6 +199,50 @@ Unhealthy services:
 </details>
 
 <details>
+<summary>🔴 Failed one-shot container (completed with error)</summary>
+
+```text
+Checking health status of services (running only)...
+❌ Service 'worker' healthcheck failed!!!
+
+─────────────────────────────────────────────────────────────
+ℹ️  Healthcheck summary
+─────────────────────────────────────────────────────────────
+  Platform:              linux/x86_64
+  Global timeout:        10s (per service)
+  Compose command:
+      docker compose -f docker-compose.yml up -d worker
+
+  Overall result:        FAILED (unhealthy services detected)
+  Healthy:               0
+  Completed:             0
+  Unhealthy:             1
+  Without healthcheck:   0
+  No containers:         0
+
+
+Unhealthy services:
+  - worker (container 9a3f8b9b1d7d2b2b7d6b1a2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4)
+    Health status: unknown
+    Container state: exited (exit code: 1)
+    Last 25 health probe outputs:
+      healthcheck failed
+
+    Last 25 container log lines:
+      worker exited with status 1
+
+──────────────────────────────────────────────
+ℹ️  Detected services:
+──────────────────────────────────────────────
+   1. worker  [FAILED]
+──────────────────────────────────────────────
+
+❌ Some services failed healthcheck.
+```
+
+</details>
+
+<details>
 <summary>ℹ️ No services specified</summary>
 
 ```text
@@ -256,6 +300,7 @@ NAMES     STATUS    IMAGE
 - Services without `healthcheck` → **SKIP**
 - One-shot containers → validated by **exit code**
 - First failure → workflow **fails immediately**
+- If `docker compose up` fails but containers exist and any exited with non-zero → **Unhealthy flow** with logs
 
 ---
 

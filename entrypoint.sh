@@ -300,6 +300,56 @@ collect_compose_failed_targets() {
   done <<<"$(tr ' ' '\n' <<<"$services")"
 }
 
+emit_healthcheck_summary() {
+  local all_services="$1"
+  local overall_ok="$2"
+  shift 2
+  local -a cmd_args=("$@")
+
+  echo
+  echo "─────────────────────────────────────────────────────────────"
+  info "Healthcheck summary"
+  echo "─────────────────────────────────────────────────────────────"
+
+  printf '  Platform:              %s\n' "${DOCKER_DEFAULT_PLATFORM:-<unknown>}"
+  printf '  Global timeout:        %ss (per service)\n' "$DOCKER_HEALTH_TIMEOUT"
+
+  printf '  Compose command:\n      '
+  local i
+  for i in "${cmd_args[@]}"; do printf '%q ' "$i"; done
+  echo
+
+  echo
+  if ((overall_ok == 1)); then
+    echo "  Overall result:        OK (all services healthy)"
+  else
+    echo "  Overall result:        FAILED (unhealthy services detected)"
+  fi
+
+  # Aggregate summary by factual runtime status across *all* services from compose config.
+  # This is aligned with the "Detected services" table.
+  sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
+  local s runtime
+  while IFS= read -r s; do
+    [[ -z "$s" ]] && continue
+    runtime="$(get_service_runtime_tag "$s")"
+    case "$runtime" in
+      HEALTHY) ((++sum_healthy)) ;;
+      COMPLETED) ((++sum_completed)) ;;
+      UNHEALTHY | FAILED) ((++sum_unhealthy)) ;;
+      NO_CONTAINERS) ((++sum_no_containers)) ;;
+      UP | *) ((++sum_no_hc)) ;;
+    esac
+  done <<<"$all_services"
+
+  printf '  Healthy:               %d\n' "$sum_healthy"
+  printf '  Completed:             %d\n' "$sum_completed"
+  printf '  Unhealthy:             %d\n' "$sum_unhealthy"
+  printf '  Without healthcheck:   %d\n' "$sum_no_hc"
+  printf '  No containers:         %d\n' "$sum_no_containers"
+  echo
+}
+
 wait_for_container_health() {
   local cid="$1"
   local timeout="${2:-$DOCKER_HEALTH_TIMEOUT}"
@@ -755,7 +805,21 @@ execute() {
 
     collect_compose_failed_targets "$failed_services"
     if ((${#DOCKER_HEALTH_UNHEALTHY_TARGETS[@]} > 0)); then
+      local all_services_failed
+      all_services_failed="$("${compose_base_cmd[@]}" config --services 2>/dev/null || true)"
+      if [[ -z "$all_services_failed" ]]; then
+        all_services_failed="$failed_services"
+      fi
+
+      emit_healthcheck_summary "$all_services_failed" 0 "${cmd_args[@]}"
       print_unhealthy_services_details
+      if [[ -n "$all_services_failed" ]]; then
+        print_detected_services_table "$all_services_failed" "${DOCKER_SERVICES_LIST:-}"
+      fi
+
+      docker_health_emit_json_report "failed" "unhealthy_services_detected" "$all_services_failed"
+      error "Some services failed healthcheck."
+      exit 1
     fi
 
     error "Some services failed to start (docker compose error)."
@@ -799,47 +863,7 @@ execute() {
     fi
   done
 
-  echo
-  echo "─────────────────────────────────────────────────────────────"
-  info "Healthcheck summary"
-  echo "─────────────────────────────────────────────────────────────"
-
-  printf '  Platform:              %s\n' "${DOCKER_DEFAULT_PLATFORM:-<unknown>}"
-  printf '  Global timeout:        %ss (per service)\n' "$DOCKER_HEALTH_TIMEOUT"
-
-  printf '  Compose command:\n      '
-  for i in "${cmd_args[@]}"; do printf '%q ' "$i"; done
-  echo
-
-  echo
-  if ((health_failed == 0)); then
-    echo "  Overall result:        OK (all services healthy)"
-  else
-    echo "  Overall result:        FAILED (unhealthy services detected)"
-  fi
-
-  # Aggregate summary by factual runtime status across *all* services from compose config.
-  # This is aligned with the "Detected services" table.
-  sum_healthy=0 sum_completed=0 sum_unhealthy=0 sum_no_hc=0 sum_no_containers=0
-  local s runtime
-  while IFS= read -r s; do
-    [[ -z "$s" ]] && continue
-    runtime="$(get_service_runtime_tag "$s")"
-    case "$runtime" in
-      HEALTHY) ((++sum_healthy)) ;;
-      COMPLETED) ((++sum_completed)) ;;
-      UNHEALTHY | FAILED) ((++sum_unhealthy)) ;;
-      NO_CONTAINERS) ((++sum_no_containers)) ;;
-      UP | *) ((++sum_no_hc)) ;;
-    esac
-  done <<<"$all_services"
-
-  printf '  Healthy:               %d\n' "$sum_healthy"
-  printf '  Completed:             %d\n' "$sum_completed"
-  printf '  Unhealthy:             %d\n' "$sum_unhealthy"
-  printf '  Without healthcheck:   %d\n' "$sum_no_hc"
-  printf '  No containers:         %d\n' "$sum_no_containers"
-  echo
+  emit_healthcheck_summary "$all_services" "$((health_failed == 0 ? 1 : 0))" "${cmd_args[@]}"
 
   if ((health_failed != 0)); then
     print_unhealthy_services_details

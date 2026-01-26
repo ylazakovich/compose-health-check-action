@@ -24,3 +24,22 @@ load '../helpers.bash'
   assert_output --partial "docker compose ls (all projects)"
   assert_output --partial "docker ps --all (global)"
 }
+
+@test "docker-command: compose up fails but exited container is treated as unhealthy" {
+  export INPUT_TIMEOUT="60"
+  export INPUT_REPORT_FORMAT="json"
+  export INPUT_DOCKER_COMMAND="docker compose -f docker/docker-compose.oneshot.yml up --abort-on-container-exit --exit-code-from oneshot-fail oneshot-fail"
+  unset INPUT_SERVICES
+
+  run_healthcheck_action_inputs
+
+  assert_failure
+  assert_json '.overall.status == "failed"'
+  assert_json '.summary.unhealthy == 1'
+  assert_json '.services["oneshot-fail"] == "failed"'
+
+  assert_output --partial "Healthcheck summary"
+  assert_output --partial "Last 25 health probe outputs"
+  assert_output --partial "Last 25 container log lines"
+  assert_output --partial "Container state: exited (exit code: 42)"
+}
