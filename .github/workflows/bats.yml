@@ -84,7 +84,7 @@ jobs:
           echo "safe_name=$SAFE" >> "$GITHUB_OUTPUT"
 
       - name: Upload JUnit report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: junit-report-${{ steps.meta.outputs.safe_name }}-${{ github.run_attempt }}
